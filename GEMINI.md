@@ -104,3 +104,11 @@ To maintain code sanity and high decoupling:
 1. **Never Inject Databases Directly inside Services**: Router controllers should resolve dependency injections (like `get_db` and `get_redis`) through `FastAPI`'s `Depends` system, and pass them into CRUD/Service layers.
 2. **Pydantic for Data Input & Output**: All request bodies must have dedicated subclassed Pydantic `BaseModel` schemas for verification before executing domain logic. Never process raw dictionaries (`dict`).
 3. **ORM to Schema Isolation**: Do not return SQLAlchemy DB models directly from your controller functions. Define the schema structure using Pydantic, and return Pydantic models or clean dictionaries that match `response_model=ApiResponse[YourSchema]`.
+
+---
+
+## 📅 Datetime & Field Naming Conventions
+To ensure smooth alignment and integration with our Flutter client:
+1. **CamelCase Response Keys**: All JSON response keys **MUST** be formatted in camelCase (e.g., `resendableAt`, `otpId`).
+2. **ISO 8601 UTC Datetime Format**: All datetime values in responses **MUST** be formatted as ISO 8601 strings with a trailing `"Z"` (Zulu time), representing UTC (e.g., `2026-07-11T11:20:44Z`).
+3. **Utility Helper**: Always use the formatting utility `format_iso8601` in `app/core/utils.py` to serialize datetimes before sending them to the client.
