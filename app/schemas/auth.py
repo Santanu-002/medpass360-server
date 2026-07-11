@@ -6,3 +6,11 @@ class SendOtpRequest(BaseModel):
     model_config = {
         "populate_by_name": True
     }
+
+class VerifyOtpRequest(BaseModel):
+    otp_id: str = Field(..., alias="otpId")
+    code: str = Field(..., alias="code")
+
+    model_config = {
+        "populate_by_name": True
+    }

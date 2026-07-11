@@ -6,7 +6,7 @@ import time
 import json
 
 from app.schemas.response import ApiResponse
-from app.schemas.auth import SendOtpRequest
+from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -95,5 +95,47 @@ async def send_otp(
             "phone": request.phone_number,
             "otpId": otp_id,
             "resendableAt": resendable_at
+        }
+    )
+
+@router.post("/verify-otp", response_model=ApiResponse)
+async def verify_otp(
+    request: VerifyOtpRequest,
+    redis: AsyncRedisDep = None
+):
+    if not redis:
+        raise HTTPException(
+            status_code=500,
+            detail="Redis storage is not configured."
+        )
+
+    redis_key_otp = f"otp_session:{request.otp_id}"
+    session_bytes = await redis.get(redis_key_otp)
+    if not session_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="Verification code expired. Please request a new one."
+        )
+
+    session_data = json.loads(session_bytes.decode())
+    
+    # Verify if code matches
+    if request.code != session_data["otp"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid verification code."
+        )
+
+    # Cleanup OTP session on successful verification
+    await redis.delete(redis_key_otp)
+
+    return ApiResponse(
+        success=True,
+        message="Verification successful.",
+        data={
+            "user": {
+                "id": "mock-user-uuid",
+                "phoneNumber": session_data["phoneNumber"]
+            }
         }
     )
