@@ -21,7 +21,7 @@ class Settings:
     # ─── JWT Token Settings ───────────────────────────────────────
     ACCESS_TOKEN_EXPIRY_SECONDS: int = 10 * 60       # 10 minutes
     REFRESH_TOKEN_EXPIRY_SECONDS: int = 7 * 24 * 60 * 60  # 7 days
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev_secret_change_in_prod")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "medpass360_secure_jwt_secret_key_for_dev_only")
     JWT_ALGORITHM: str = "HS256"
 
 settings = Settings()
