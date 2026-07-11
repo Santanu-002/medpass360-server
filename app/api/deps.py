@@ -44,7 +44,7 @@ def get_current_user(
             detail="Could not validate credentials/token expired",
         )
     
-    user = get_user_by_id(db, user_id=user_id)
+    user = get_user_by_id(db, user_uid=user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

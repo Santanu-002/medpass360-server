@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey, Date, JSON, DateTime
+from sqlalchemy import Column, String, ForeignKey, Date, JSON, DateTime, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -8,8 +8,9 @@ from app.core.database import Base
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uid = Column(String(36), unique=True, nullable=False, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.uid", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
     email = Column(String(255), unique=True, nullable=True, index=True)

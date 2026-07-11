@@ -152,9 +152,9 @@ async def verify_otp(
     # 1. Fetch or create actual user in the PostgreSQL DB
     db_user = get_or_create_user(db, phone_number=session_data["phoneNumber"])
 
-    # 2. Generate auth tokens with real user ID
-    access = create_access_token(subject=db_user.id)
-    refresh = create_refresh_token(subject=db_user.id)
+    # 2. Generate auth tokens with real user ID (uid)
+    access = create_access_token(subject=db_user.uid)
+    refresh = create_refresh_token(subject=db_user.uid)
 
     # 3. Construct user details response
     user_resp = UserResponse.model_validate(db_user)

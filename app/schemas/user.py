@@ -35,7 +35,8 @@ class ProfileUpdate(ProfileBase):
 
 
 class ProfileResponse(ProfileBase):
-    id: str
+    id: int
+    uid: str
     user_id: str
     created_at: datetime
     updated_at: datetime
@@ -53,7 +54,8 @@ class UserCreate(UserBase):
 
 
 class UserResponse(UserBase):
-    id: str
+    id: int
+    uid: str
     is_active: bool
     created_at: datetime
     updated_at: datetime
