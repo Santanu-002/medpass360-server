@@ -14,3 +14,14 @@ class VerifyOtpRequest(BaseModel):
     model_config = {
         "populate_by_name": True
     }
+
+class TokenResponse(BaseModel):
+    access_token: str = Field(..., alias="accessToken")
+    refresh_token: str = Field(..., alias="refreshToken")
+    access_token_expiry: str = Field(..., alias="accessTokenExpiry")
+    refresh_token_expiry: str = Field(..., alias="refreshTokenExpiry")
+    issued_at: str = Field(..., alias="issuedAt")
+
+    model_config = {
+        "populate_by_name": True
+    }

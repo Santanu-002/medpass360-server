@@ -1,15 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from redis_fastapi import AsyncRedisDep
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 import logging
 import hashlib
 import time
 import json
+import jwt
 from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.core.utils import format_iso8601
-from app.core.jwt_service import create_access_token, create_refresh_token
+from app.core.jwt_service import create_access_token, create_refresh_token, decode_token
 from app.api.deps import get_db, get_current_user
 from app.crud.user import get_or_create_user, update_profile
 from app.models.user import User
@@ -19,6 +21,14 @@ from app.schemas.user import UserResponse, ProfileUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., alias="refreshToken")
+
+    model_config = {
+        "populate_by_name": True
+    }
 
 
 @router.post("/send-otp", response_model=ApiResponse)
@@ -149,13 +159,66 @@ async def verify_otp(
     # 3. Construct user details response
     user_resp = UserResponse.model_validate(db_user)
 
+    token_data = {
+        "accessToken": access["token"],
+        "refreshToken": refresh["token"],
+        "accessTokenExpiry": access["expiresAt"],
+        "refreshTokenExpiry": refresh["expiresAt"],
+        "issuedAt": access["issuedAt"]
+    }
+
     return ApiResponse(
         success=True,
         message="Verification successful.",
         data={
             "user": user_resp,
-            "accessToken": access,
-            "refreshToken": refresh,
+            "token": token_data,
+        }
+    )
+
+
+@router.post("/refresh", response_model=ApiResponse)
+async def refresh_tokens(
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        payload = decode_token(request.refresh_token)
+        token_type = payload.get("type")
+        if token_type != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type"
+            )
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
+            )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials/token expired"
+        )
+
+    # Generate new access and refresh tokens
+    access = create_access_token(subject=user_id)
+    refresh = create_refresh_token(subject=user_id)
+
+    token_data = {
+        "accessToken": access["token"],
+        "refreshToken": refresh["token"],
+        "accessTokenExpiry": access["expiresAt"],
+        "refreshTokenExpiry": refresh["expiresAt"],
+        "issuedAt": access["issuedAt"]
+    }
+
+    return ApiResponse(
+        success=True,
+        message="Token refresh successful.",
+        data={
+            "token": token_data
         }
     )
 
