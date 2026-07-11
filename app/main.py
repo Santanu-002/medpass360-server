@@ -32,9 +32,16 @@ register_exception_handlers(app)
 
 @app.on_event("startup")
 def startup_event():
-    from app.core.database import Base, engine
-    import app.models
-    Base.metadata.create_all(bind=engine)
+    # Run Alembic migrations automatically on startup to keep database schema up to date
+    import os
+    from alembic.config import Config
+    from alembic import command
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ini_path = os.path.join(base_dir, "alembic.ini")
+    
+    alembic_cfg = Config(ini_path)
+    command.upgrade(alembic_cfg, "head")
 
 
 # Mount API routers
