@@ -18,4 +18,10 @@ class Settings:
     OTP_HASH_SALT: str = os.getenv("OTP_HASH_SALT", "medpass360_secure_salt_value")
     OTP_DEV_CODE: str = "123456"        # Hardcoded OTP code for dev/simulation
 
+    # ─── JWT Token Settings ───────────────────────────────────────
+    ACCESS_TOKEN_EXPIRY_SECONDS: int = 10 * 60       # 10 minutes
+    REFRESH_TOKEN_EXPIRY_SECONDS: int = 7 * 24 * 60 * 60  # 7 days
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev_secret_change_in_prod")
+    JWT_ALGORITHM: str = "HS256"
+
 settings = Settings()
