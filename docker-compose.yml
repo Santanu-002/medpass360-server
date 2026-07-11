@@ -57,7 +57,7 @@ services:
       - ENV=development
     volumes:
       - ./app:/workspace/app  # Hot-reload: mounts local code into container
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
     depends_on:
       db:
         condition: service_healthy
