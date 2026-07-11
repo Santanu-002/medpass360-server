@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from redis_fastapi import FastAPIRedis
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.core.middleware import DeviceHeaderMiddleware
 from app.api.v1.router import api_router
 from app.api.v1.endpoints import health
 
@@ -23,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(DeviceHeaderMiddleware)
 
 # Register consistent error exception handlers
 register_exception_handlers(app)
