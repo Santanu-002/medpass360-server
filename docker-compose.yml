@@ -55,6 +55,9 @@ services:
       - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/medpass360
       - REDIS_URL=redis://redis:6379/0
       - ENV=development
+    volumes:
+      - ./app:/workspace/app  # Hot-reload: mounts local code into container
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       db:
         condition: service_healthy
