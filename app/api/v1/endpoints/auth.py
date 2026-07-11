@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from app.core.config import settings
 from app.core.utils import format_iso8601
+from app.core.jwt_service import create_access_token, create_refresh_token
 
 from app.schemas.response import ApiResponse
 from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
@@ -130,13 +131,20 @@ async def verify_otp(
     # Cleanup OTP session on successful verification
     await redis.delete(redis_key_otp)
 
+    # Generate auth tokens
+    user_id = "mock-user-uuid"
+    access = create_access_token(subject=user_id)
+    refresh = create_refresh_token(subject=user_id)
+
     return ApiResponse(
         success=True,
         message="Verification successful.",
         data={
             "user": {
-                "id": "mock-user-uuid",
+                "id": user_id,
                 "phoneNumber": session_data["phoneNumber"]
-            }
+            },
+            "accessToken": access,
+            "refreshToken": refresh,
         }
     )
