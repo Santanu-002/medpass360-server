@@ -92,6 +92,7 @@ async def send_otp(
         success=True,
         message="OTP sent successfully.",
         data={
+            "phone": request.phone_number,
             "otpId": otp_id,
             "resendableAt": resendable_at
         }
