@@ -36,3 +36,13 @@ def create_access_token(subject: str) -> dict:
 
 def create_refresh_token(subject: str) -> dict:
     return _build_token(subject, "refresh", settings.REFRESH_TOKEN_EXPIRY_SECONDS)
+
+
+def decode_token(token: str) -> dict:
+    """Decode and validate a JWT token. Raises jwt.PyJWTError on failure."""
+    return jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+

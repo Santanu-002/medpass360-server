@@ -30,6 +30,13 @@ app.add_middleware(DeviceHeaderMiddleware)
 # Register consistent error exception handlers
 register_exception_handlers(app)
 
+@app.on_event("startup")
+def startup_event():
+    from app.core.database import Base, engine
+    import app.models
+    Base.metadata.create_all(bind=engine)
+
+
 # Mount API routers
 # Mount health endpoints at root level for easy server monitoring/pings
 app.include_router(health.router)

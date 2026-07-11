@@ -1,19 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from redis_fastapi import AsyncRedisDep
+from sqlalchemy.orm import Session
 import logging
 import hashlib
 import time
 import json
 from datetime import datetime, timezone
+
 from app.core.config import settings
 from app.core.utils import format_iso8601
 from app.core.jwt_service import create_access_token, create_refresh_token
-
+from app.api.deps import get_db, get_current_user
+from app.crud.user import get_or_create_user, update_profile
+from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
+from app.schemas.user import UserResponse, ProfileUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
 
 @router.post("/send-otp", response_model=ApiResponse)
 async def send_otp(
@@ -37,7 +43,7 @@ async def send_otp(
     # 2. Check if request limit is exceeded
     if count >= settings.OTP_MAX_REQUESTS:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="OTP request limit reached. Please try again later."
         )
 
@@ -100,14 +106,16 @@ async def send_otp(
         }
     )
 
+
 @router.post("/verify-otp", response_model=ApiResponse)
 async def verify_otp(
     request: VerifyOtpRequest,
-    redis: AsyncRedisDep = None
+    redis: AsyncRedisDep = None,
+    db: Session = Depends(get_db)
 ):
     if not redis:
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Redis storage is not configured."
         )
 
@@ -115,7 +123,7 @@ async def verify_otp(
     session_bytes = await redis.get(redis_key_otp)
     if not session_bytes:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Verification code expired. Please request a new one."
         )
 
@@ -124,27 +132,72 @@ async def verify_otp(
     # Any OTP code other than "111111" is valid for now
     if request.code == "111111":
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid verification code."
         )
 
     # Cleanup OTP session on successful verification
     await redis.delete(redis_key_otp)
 
-    # Generate auth tokens
-    user_id = "mock-user-uuid"
-    access = create_access_token(subject=user_id)
-    refresh = create_refresh_token(subject=user_id)
+    # 1. Fetch or create actual user in the PostgreSQL DB
+    db_user = get_or_create_user(db, phone_number=session_data["phoneNumber"])
+
+    # 2. Generate auth tokens with real user ID
+    access = create_access_token(subject=db_user.id)
+    refresh = create_refresh_token(subject=db_user.id)
+
+    # 3. Construct user details response
+    user_resp = UserResponse.model_validate(db_user)
 
     return ApiResponse(
         success=True,
         message="Verification successful.",
         data={
-            "user": {
-                "id": user_id,
-                "phoneNumber": session_data["phoneNumber"]
-            },
+            "user": user_resp,
             "accessToken": access,
             "refreshToken": refresh,
         }
+    )
+
+
+@router.get("/profile", response_model=ApiResponse[UserResponse])
+def get_profile(
+    current_user: User = Depends(get_current_user)
+):
+    user_resp = UserResponse.model_validate(current_user)
+    return ApiResponse(
+        success=True,
+        message="Profile retrieved successfully.",
+        data=user_resp
+    )
+
+
+@router.put("/profile", response_model=ApiResponse[UserResponse])
+def update_user_profile(
+    profile_data: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    update_profile(db, user_id=current_user.id, profile_update=profile_data)
+    
+    # Refresh user object from DB to get updated profile relation
+    db.refresh(current_user)
+    user_resp = UserResponse.model_validate(current_user)
+    
+    return ApiResponse(
+        success=True,
+        message="Profile updated successfully.",
+        data=user_resp
+    )
+
+
+@router.post("/logout", response_model=ApiResponse)
+async def logout(
+    current_user: User = Depends(get_current_user)
+):
+    # In a real environment, we would blacklist the token in Redis.
+    # For now, return a successful response.
+    return ApiResponse(
+        success=True,
+        message="Logout successful."
     )
