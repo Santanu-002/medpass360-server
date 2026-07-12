@@ -140,6 +140,7 @@ def test_registration_flow():
         print("✅ Failed without phone number (correctly validated).")
         
         # Test 6b: Register with phone number (should succeed)
+        test_phone_email_login = f"+1555{int(time.time()) + 1}"
         r = email_client.post(
             f"{BASE_URL}/auth/register",
             data={
@@ -147,14 +148,43 @@ def test_registration_flow():
                 "lastName": "Doe",
                 "gender": "Female",
                 "dateOfBirth": "1998-05-20",
-                "phoneNumber": "+15559876543"
+                "phoneNumber": test_phone_email_login
             }
         )
         assert r.status_code == 200, f"Failed email-login registration: {r.text}"
         profile = r.json()["data"]["profile"]
-        assert profile["phoneNumber"] == "+15559876543"
+        assert profile["phoneNumber"] == test_phone_email_login
         assert profile["email"] == test_email
         print("✅ Registered successfully with phone number.")
+
+        # Test 6c: Attempt registering with an already registered phone number by another user (should fail)
+        print("Test 6c: Attempting to register duplicate phone number by another user...")
+        another_test_email = f"another_test_{int(time.time())}@example.com"
+        r = client.post(f"{BASE_URL}/auth/send-otp", json={"identity": another_test_email, "type": "email"})
+        assert r.status_code == 200
+        another_otp_id = r.json()["data"]["otpId"]
+
+        r = client.post(f"{BASE_URL}/auth/verify-otp", json={"otpId": another_otp_id, "code": "123456"})
+        assert r.status_code == 200
+        another_access_token = r.json()["data"]["token"]["accessToken"]
+
+        another_email_client = httpx.Client(headers={**device_headers, "Authorization": f"Bearer {another_access_token}"})
+
+        r = another_email_client.post(
+            f"{BASE_URL}/auth/register",
+            data={
+                "firstName": "Duplicate",
+                "lastName": "User",
+                "gender": "Male",
+                "dateOfBirth": "1998-05-20",
+                "phoneNumber": test_phone_email_login  # already registered by Jane Doe in step 6b
+            }
+        )
+        assert r.status_code == 400, f"Registration should have failed with duplicate phone number: {r.text}"
+        json_resp = r.json()
+        error_msg = json_resp.get("message", "") or json_resp.get("detail", "")
+        assert "Phone number is already in use" in error_msg, f"Expected conflict message, got: {json_resp}"
+        print("✅ Failed with duplicate phone number (correctly validated).")
         
         print("\n🎉 ALL TESTS PASSED SUCCESSFULLY! Endpoint is fully functional.")
 

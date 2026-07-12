@@ -113,6 +113,35 @@ async def register_user_profile(
         final_phone = current_user.phone_number  # prefilled from login identity
         final_email = email.strip() if email and email.strip() else None
 
+    # Check for email or phone number conflicts with other users/profiles
+    if final_phone:
+        user_by_phone = db.query(User).filter(User.phone_number == final_phone).first()
+        if user_by_phone and user_by_phone.uid != current_user.uid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is already in use by another account."
+            )
+        profile_by_phone = db.query(Profile).filter(Profile.phone_number == final_phone).first()
+        if profile_by_phone and profile_by_phone.user_id != current_user.uid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is already in use by another account."
+            )
+
+    if final_email:
+        user_by_email = db.query(User).filter(User.phone_number == final_email).first()
+        if user_by_email and user_by_email.uid != current_user.uid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email address is already in use by another account."
+            )
+        profile_by_email = db.query(Profile).filter(Profile.email == final_email).first()
+        if profile_by_email and profile_by_email.user_id != current_user.uid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email address is already in use by another account."
+            )
+
     # 3. Save avatar if provided
     avatar_url = None
     if avatar and avatar.filename:
