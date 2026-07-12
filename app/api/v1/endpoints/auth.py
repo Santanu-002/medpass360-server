@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Form, File, UploadFile
+from typing import Optional
 from redis_fastapi import AsyncRedisDep
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -7,17 +8,19 @@ import hashlib
 import time
 import json
 import jwt
-from datetime import datetime, timezone
+import os
+import shutil
+from datetime import datetime, timezone, date
 
 from app.core.config import settings
 from app.core.utils import format_iso8601
 from app.core.jwt_service import create_access_token, create_refresh_token, decode_token
 from app.api.deps import get_db, get_current_user
-from app.crud.user import get_or_create_user, update_profile
+from app.crud.user import get_or_create_user, update_profile, create_profile
 from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
-from app.schemas.user import UserResponse, ProfileUpdate
+from app.schemas.user import UserResponse, ProfileUpdate, RegisterRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -43,7 +46,7 @@ async def send_otp(
     count = 0
     if redis:
         try:
-            redis_key_count = f"otp_count:{request.phone_number}:{device_id}"
+            redis_key_count = f"otp_count:{request.identity}:{device_id}"
             count_bytes = await redis.get(redis_key_count)
             if count_bytes:
                 count = int(count_bytes.decode())
@@ -60,7 +63,7 @@ async def send_otp(
     # 3. Increment request count
     if redis:
         try:
-            redis_key_count = f"otp_count:{request.phone_number}:{device_id}"
+            redis_key_count = f"otp_count:{request.identity}:{device_id}"
             await redis.incr(redis_key_count)
             if count == 0:
                 await redis.expire(redis_key_count, settings.OTP_RATE_LIMIT_TTL)
@@ -76,7 +79,7 @@ async def send_otp(
     resendable_at = format_iso8601(resendable_dt)
 
     # 5. Generate secure otpId as a salted hash of the payload
-    payload_str = f"{request.phone_number}:{device_id}:{expiry_time}:{settings.OTP_HASH_SALT}"
+    payload_str = f"{request.identity}:{device_id}:{expiry_time}:{settings.OTP_HASH_SALT}"
     otp_id = hashlib.sha256(payload_str.encode()).hexdigest()
 
     # 6. Save OTP session to Redis for verification
@@ -85,7 +88,7 @@ async def send_otp(
         try:
             redis_key_otp = f"otp_session:{otp_id}"
             session_data = {
-                "phoneNumber": request.phone_number,
+                "phoneNumber": request.identity,
                 "deviceId": device_id,
                 "otp": otp_code,
                 "expiryTime": expiry_time
@@ -101,7 +104,7 @@ async def send_otp(
 
     # Console simulation logs
     print(f"\n========================================")
-    print(f"🔥 [SMS GATEWAY SIMULATION] Sent OTP: {otp_code} to {request.phone_number}")
+    print(f"🔥 [SMS/EMAIL GATEWAY SIMULATION] Sent OTP: {otp_code} to {request.identity} via {request.type}")
     print(f"Session OTP ID: {otp_id}")
     print(f"Resend delay: {delay_seconds}s (resendable at timestamp: {resendable_at})")
     print(f"========================================\n")
@@ -110,7 +113,7 @@ async def send_otp(
         success=True,
         message="OTP sent successfully.",
         data={
-            "phone": request.phone_number,
+            "identity": request.identity,
             "otpId": otp_id,
             "resendableAt": resendable_at
         }
@@ -223,35 +226,7 @@ async def refresh_tokens(
     )
 
 
-@router.get("/profile", response_model=ApiResponse[UserResponse])
-def get_profile(
-    current_user: User = Depends(get_current_user)
-):
-    user_resp = UserResponse.model_validate(current_user)
-    return ApiResponse(
-        success=True,
-        message="Profile retrieved successfully.",
-        data=user_resp
-    )
 
-
-@router.put("/profile", response_model=ApiResponse[UserResponse])
-def update_user_profile(
-    profile_data: ProfileUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    update_profile(db, user_id=current_user.id, profile_update=profile_data)
-    
-    # Refresh user object from DB to get updated profile relation
-    db.refresh(current_user)
-    user_resp = UserResponse.model_validate(current_user)
-    
-    return ApiResponse(
-        success=True,
-        message="Profile updated successfully.",
-        data=user_resp
-    )
 
 
 @router.post("/logout", response_model=ApiResponse)
@@ -263,4 +238,30 @@ async def logout(
     return ApiResponse(
         success=True,
         message="Logout successful."
+    )
+
+
+@router.get("/check-exists", response_model=ApiResponse)
+async def check_exists(
+    identity: str,
+    db: Session = Depends(get_db)
+):
+    from app.models.user import User as DBUser
+    from app.models.profile import Profile as DBProfile
+    
+    # Check if this identity exists in User table (as primary credential)
+    user_exists = db.query(DBUser).filter(DBUser.phone_number == identity).first() is not None
+    
+    # Or in the Profile table (as secondary email or phone number)
+    if not user_exists:
+        user_exists = db.query(DBProfile).filter(
+            (DBProfile.email == identity) | (DBProfile.phone_number == identity)
+        ).first() is not None
+
+    return ApiResponse(
+        success=True,
+        message="Checked identity existence successfully.",
+        data={
+            "exists": user_exists
+        }
     )
