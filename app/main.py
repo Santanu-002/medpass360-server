@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from redis_fastapi import FastAPIRedis
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
@@ -26,6 +28,11 @@ app.add_middleware(
 )
 
 app.add_middleware(DeviceHeaderMiddleware)
+
+# Mount uploads directory to serve uploaded avatars statically
+uploads_dir = "/workspace/uploads"
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # Register consistent error exception handlers
 register_exception_handlers(app)

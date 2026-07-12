@@ -13,12 +13,23 @@ class CamelModel(BaseModel):
         )
 
 
+from enum import Enum
+
+class Gender(str, Enum):
+    MALE = "Male"
+    FEMALE = "Female"
+    OTHER = "Other"
+    PREFER_NOT_TO_SAY = "Prefer not to say"
+
+
 class ProfileBase(CamelModel):
     first_name: Optional[str] = Field(None, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
     email: Optional[EmailStr] = None
+    phone_number: Optional[str] = Field(None, max_length=50)
     date_of_birth: Optional[date] = None
-    gender: Optional[str] = Field(None, max_length=50)
+    gender: Optional[Gender] = None
+    avatar: Optional[str] = Field(None, max_length=500)
     blood_type: Optional[str] = Field(None, max_length=10)
     allergies: Optional[Dict[str, Any]] = None
     medical_conditions: Optional[Dict[str, Any]] = None
@@ -34,6 +45,16 @@ class ProfileUpdate(ProfileBase):
     pass
 
 
+class RegisterRequest(CamelModel):
+    first_name: str = Field(..., max_length=100)
+    last_name: str = Field(..., max_length=100)
+    gender: Gender
+    date_of_birth: date
+    avatar: Optional[str] = Field(None, max_length=500)
+    phone_number: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = Field(None, max_length=255)
+
+
 class ProfileResponse(ProfileBase):
     id: int
     uid: str
@@ -46,7 +67,7 @@ class ProfileResponse(ProfileBase):
 
 
 class UserBase(CamelModel):
-    phone_number: str = Field(..., max_length=20)
+    phone_number: str = Field(..., max_length=150)
 
 
 class UserCreate(UserBase):

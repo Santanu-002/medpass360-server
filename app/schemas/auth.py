@@ -1,11 +1,13 @@
 from pydantic import BaseModel, Field
+from enum import Enum
+
+class OtpType(str, Enum):
+    EMAIL = "email"
+    PHONE = "phone"
 
 class SendOtpRequest(BaseModel):
-    phone_number: str = Field(..., alias="phoneNumber")
-
-    model_config = {
-        "populate_by_name": True
-    }
+    identity: str
+    type: OtpType
 
 class VerifyOtpRequest(BaseModel):
     otp_id: str = Field(..., alias="otpId")

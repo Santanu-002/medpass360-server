@@ -13,19 +13,42 @@ def get_user_by_phone(db: Session, phone_number: str) -> Optional[User]:
     return db.query(User).filter(User.phone_number == phone_number).first()
 
 
+from datetime import date
+
 def create_user(db: Session, phone_number: str) -> User:
     # Create the user
     db_user = User(phone_number=phone_number)
     db.add(db_user)
-    db.flush()  # Populates user uid and id
-
-    # Create associated empty profile linked by user_id -> users.uid
-    db_profile = Profile(user_id=db_user.uid)
-    db.add(db_profile)
-    
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def create_profile(
+    db: Session,
+    user_uid: str,
+    first_name: str,
+    last_name: str,
+    gender: str,
+    date_of_birth: date,
+    avatar: Optional[str] = None,
+    phone_number: Optional[str] = None,
+    email: Optional[str] = None
+) -> Profile:
+    db_profile = Profile(
+        user_id=user_uid,
+        first_name=first_name,
+        last_name=last_name,
+        gender=gender,
+        date_of_birth=date_of_birth,
+        avatar=avatar,
+        phone_number=phone_number,
+        email=email
+    )
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+    return db_profile
 
 
 def get_or_create_user(db: Session, phone_number: str) -> User:

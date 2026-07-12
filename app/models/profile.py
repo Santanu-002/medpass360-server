@@ -14,8 +14,10 @@ class Profile(Base):
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
+    phone_number = Column(String(50), nullable=True)
     date_of_birth = Column(Date, nullable=True)
     gender = Column(String(50), nullable=True)
+    avatar = Column(String(500), nullable=True)
     blood_type = Column(String(10), nullable=True)
     
     # Profile extras/metadata (allergies, medical history, etc.)
