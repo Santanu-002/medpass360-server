@@ -34,12 +34,33 @@ class RefreshTokenRequest(BaseModel):
     }
 
 
-@router.post("/send-otp", response_model=ApiResponse)
-async def send_otp(
+@router.post("/create-account", response_model=ApiResponse)
+async def create_account(
     request: SendOtpRequest,
     req_raw: Request,
-    redis: AsyncRedisDep = None
+    redis: AsyncRedisDep = None,
+    db: Session = Depends(get_db)
 ):
+    from app.models.user import User as DBUser
+    from app.models.profile import Profile as DBProfile
+
+    # Enforce that user does not exist
+    user = db.query(DBUser).filter(DBUser.phone_number == request.identity).first()
+    user_exists = user is not None
+
+    if not user_exists:
+        db_profile = db.query(DBProfile).filter(
+            (DBProfile.email == request.identity) | (DBProfile.phone_number == request.identity)
+        ).first()
+        if db_profile:
+            user_exists = True
+
+    if user_exists:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account already exists with this phone number or email. Please login."
+        )
+
     device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
 
     # 1. Fetch resend count history from Redis
@@ -250,18 +271,198 @@ async def check_exists(
     from app.models.profile import Profile as DBProfile
     
     # Check if this identity exists in User table (as primary credential)
-    user_exists = db.query(DBUser).filter(DBUser.phone_number == identity).first() is not None
+    user = db.query(DBUser).filter(DBUser.phone_number == identity).first()
+    user_exists = user is not None
+    has_biometrics = user.has_biometrics if user else False
     
     # Or in the Profile table (as secondary email or phone number)
     if not user_exists:
-        user_exists = db.query(DBProfile).filter(
+        db_profile = db.query(DBProfile).filter(
             (DBProfile.email == identity) | (DBProfile.phone_number == identity)
-        ).first() is not None
+        ).first()
+        if db_profile:
+            user_exists = True
+            user = db.query(DBUser).filter(DBUser.uid == db_profile.user_id).first()
+            has_biometrics = user.has_biometrics if user else False
 
     return ApiResponse(
         success=True,
         message="Checked identity existence successfully.",
         data={
-            "exists": user_exists
+            "exists": user_exists,
+            "hasBiometrics": has_biometrics
+        }
+    )
+
+
+class BiometricLoginRequest(BaseModel):
+    identity: str
+
+
+@router.post("/enable-biometrics", response_model=ApiResponse)
+async def enable_biometrics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    current_user.has_biometrics = True
+    db.add(current_user)
+    db.commit()
+    return ApiResponse(
+        success=True,
+        message="Biometrics enabled successfully."
+    )
+
+
+@router.post("/login/otp", response_model=ApiResponse)
+async def login_otp(
+    request: SendOtpRequest,
+    req_raw: Request,
+    redis: AsyncRedisDep = None,
+    db: Session = Depends(get_db)
+):
+    from app.models.user import User as DBUser
+    from app.models.profile import Profile as DBProfile
+
+    # Enforce that user exists
+    user = db.query(DBUser).filter(DBUser.phone_number == request.identity).first()
+    user_exists = user is not None
+
+    if not user_exists:
+        db_profile = db.query(DBProfile).filter(
+            (DBProfile.email == request.identity) | (DBProfile.phone_number == request.identity)
+        ).first()
+        if db_profile:
+            user_exists = True
+
+    if not user_exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this phone number or email. Please create an account."
+        )
+
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+
+    # Fetch resend count history from Redis
+    count = 0
+    if redis:
+        try:
+            redis_key_count = f"otp_count:{request.identity}:{device_id}"
+            count_bytes = await redis.get(redis_key_count)
+            if count_bytes:
+                count = int(count_bytes.decode())
+        except Exception as e:
+            logger.error(f"Failed to fetch OTP count from Redis: {str(e)}")
+
+    # Check if request limit is exceeded
+    if count >= settings.OTP_MAX_REQUESTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP request limit reached. Please try again later."
+        )
+
+    # Increment request count
+    if redis:
+        try:
+            redis_key_count = f"otp_count:{request.identity}:{device_id}"
+            await redis.incr(redis_key_count)
+            if count == 0:
+                await redis.expire(redis_key_count, settings.OTP_RATE_LIMIT_TTL)
+        except Exception as e:
+            logger.error(f"Failed to increment OTP count in Redis: {str(e)}")
+
+    current_time = int(time.time())
+    expiry_time = current_time + settings.OTP_EXPIRY_TTL
+
+    delay_seconds = (count + 1) * settings.OTP_RESEND_DELAY_STEP
+    resendable_dt = datetime.fromtimestamp(current_time + delay_seconds, tz=timezone.utc)
+    resendable_at = format_iso8601(resendable_dt)
+
+    # Generate secure otpId as a salted hash of the payload
+    payload_str = f"{request.identity}:{device_id}:{expiry_time}:{settings.OTP_HASH_SALT}"
+    otp_id = hashlib.sha256(payload_str.encode()).hexdigest()
+
+    # Save OTP session to Redis for verification
+    otp_code = settings.OTP_DEV_CODE
+    if redis:
+        try:
+            redis_key_otp = f"otp_session:{otp_id}"
+            session_data = {
+                "phoneNumber": request.identity,
+                "deviceId": device_id,
+                "otp": otp_code,
+                "expiryTime": expiry_time
+            }
+            await redis.setex(
+                name=redis_key_otp,
+                time=settings.OTP_EXPIRY_TTL,
+                value=json.dumps(session_data)
+            )
+            logger.info(f"Saved OTP session {otp_id} to Redis")
+        except Exception as e:
+            logger.error(f"Failed to save OTP session to Redis: {str(e)}")
+
+    # Console simulation logs
+    print(f"\n========================================")
+    print(f"🔥 [SMS/EMAIL GATEWAY SIMULATION] Sent Login OTP: {otp_code} to {request.identity} via {request.type}")
+    print(f"Session OTP ID: {otp_id}")
+    print(f"Resend delay: {delay_seconds}s (resendable at timestamp: {resendable_at})")
+    print(f"========================================\n")
+
+    return ApiResponse(
+        success=True,
+        message="OTP sent successfully.",
+        data={
+            "identity": request.identity,
+            "otpId": otp_id,
+            "resendableAt": resendable_at
+        }
+    )
+
+
+@router.post("/login", response_model=ApiResponse)
+async def login(
+    request: BiometricLoginRequest,
+    db: Session = Depends(get_db)
+):
+    from app.models.profile import Profile as DBProfile
+    
+    db_user = db.query(User).filter(User.phone_number == request.identity).first()
+    if not db_user:
+        db_profile = db.query(DBProfile).filter(
+            (DBProfile.email == request.identity) | (DBProfile.phone_number == request.identity)
+        ).first()
+        if db_profile:
+            db_user = db.query(User).filter(User.uid == db_profile.user_id).first()
+
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+
+    if not db_user.has_biometrics:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Biometric authentication is not enabled for this user."
+        )
+
+    access = create_access_token(subject=db_user.uid)
+    refresh = create_refresh_token(subject=db_user.uid)
+    user_resp = UserResponse.model_validate(db_user)
+
+    token_data = {
+        "accessToken": access["token"],
+        "refreshToken": refresh["token"],
+        "accessTokenExpiry": access["expiresAt"],
+        "refreshTokenExpiry": refresh["expiresAt"],
+        "issuedAt": access["issuedAt"]
+    }
+
+    return ApiResponse(
+        success=True,
+        message="Biometric login successful.",
+        data={
+            "user": user_resp,
+            "token": token_data,
         }
     )

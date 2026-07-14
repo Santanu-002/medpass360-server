@@ -21,8 +21,8 @@ def test_health_profile_flow():
         test_phone = f"+1555{int(time.time())}"
         print(f"1. Sending OTP to {test_phone}...")
         
-        r = client.post(f"{BASE_URL}/auth/send-otp", json={"identity": test_phone, "type": "phone"})
-        assert r.status_code == 200, f"Failed send-otp: {r.text}"
+        r = client.post(f"{BASE_URL}/auth/create-account", json={"identity": test_phone, "type": "phone"})
+        assert r.status_code == 200, f"Failed create-account: {r.text}"
         otp_id = r.json()["data"]["otpId"]
         
         print("2. Verifying OTP...")

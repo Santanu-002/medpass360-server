@@ -6,7 +6,7 @@ BASE_URL = "http://localhost:8000/api/v1"
 STATIC_URL = "http://localhost:8000"
 
 def test_registration_flow():
-    print("🚀 Starting Registration and Avatar Upload Integration Test...")
+    print("[START] Starting Registration and Avatar Upload Integration Test...")
     
     # Configure required device headers to bypass DeviceHeaderMiddleware
     device_headers = {
@@ -27,12 +27,12 @@ def test_registration_flow():
         print(f"1. Sending OTP to {test_phone}...")
         
         # 1. Send OTP
-        r = client.post(f"{BASE_URL}/auth/send-otp", json={"identity": test_phone, "type": "phone"})
-        assert r.status_code == 200, f"Failed send-otp: {r.text}"
+        r = client.post(f"{BASE_URL}/auth/create-account", json={"identity": test_phone, "type": "phone"})
+        assert r.status_code == 200, f"Failed create-account: {r.text}"
         resp_data = r.json()
         assert resp_data["success"] is True
         otp_id = resp_data["data"]["otpId"]
-        print(f"✅ OTP sent successfully. Session OTP ID: {otp_id}")
+        print(f"[SUCCESS] OTP sent successfully. Session OTP ID: {otp_id}")
         
         # 2. Verify OTP
         print("2. Verifying OTP...")
@@ -51,7 +51,7 @@ def test_registration_flow():
         
         # Check that profile is None for new users
         assert user_data["profile"] is None, "Profile should be null/None for a new user"
-        print("✅ OTP verified. User created with no profile (as expected).")
+        print("[SUCCESS] OTP verified. User created with no profile (as expected).")
         
         # Set Authorization header in the client
         client.headers["Authorization"] = f"Bearer {access_token}"
@@ -90,7 +90,7 @@ def test_registration_flow():
         
         avatar_url = profile_data["avatar"]
         assert avatar_url == f"/uploads/avatars/{user_uid}_avatar.jpg"
-        print(f"✅ User registered. Saved avatar url: {avatar_url}")
+        print(f"[SUCCESS] User registered. Saved avatar url: {avatar_url}")
         
         # 4. Verify static file serving
         print("4. Verifying static file serving of the uploaded avatar...")
@@ -101,7 +101,7 @@ def test_registration_flow():
         r = client.get(static_file_url)
         assert r.status_code == 200, f"Failed static file request: {r.text}"
         assert r.content == b"fake image data"
-        print("✅ Static file serving verified. Uploaded avatar content matches original.")
+        print("[SUCCESS] Static file serving verified. Uploaded avatar content matches original.")
         
         # 5. Fetch profile again to verify persistence
         print("5. Querying GET /profile to verify persistence...")
@@ -111,12 +111,12 @@ def test_registration_flow():
         assert resp_data["success"] is True
         persisted_profile = resp_data["data"]["profile"]
         assert persisted_profile["avatar"] == avatar_url
-        print("✅ Profile retrieved and verified. All details persisted.")
+        print("[SUCCESS] Profile retrieved and verified. All details persisted.")
         
         # 6. Email-login registration validation test
         print("6. Testing email-login registration flow...")
         test_email = f"test_{int(time.time())}@example.com"
-        r = client.post(f"{BASE_URL}/auth/send-otp", json={"identity": test_email, "type": "email"})
+        r = client.post(f"{BASE_URL}/auth/create-account", json={"identity": test_email, "type": "email"})
         assert r.status_code == 200
         otp_id = r.json()["data"]["otpId"]
         
@@ -137,7 +137,7 @@ def test_registration_flow():
             }
         )
         assert r.status_code == 400, f"Registration should have failed without phone number: {r.text}"
-        print("✅ Failed without phone number (correctly validated).")
+        print("[SUCCESS] Failed without phone number (correctly validated).")
         
         # Test 6b: Register with phone number (should succeed)
         test_phone_email_login = f"+1555{int(time.time()) + 1}"
@@ -155,12 +155,12 @@ def test_registration_flow():
         profile = r.json()["data"]["profile"]
         assert profile["phoneNumber"] == test_phone_email_login
         assert profile["email"] == test_email
-        print("✅ Registered successfully with phone number.")
+        print("[SUCCESS] Registered successfully with phone number.")
 
         # Test 6c: Attempt registering with an already registered phone number by another user (should fail)
         print("Test 6c: Attempting to register duplicate phone number by another user...")
         another_test_email = f"another_test_{int(time.time())}@example.com"
-        r = client.post(f"{BASE_URL}/auth/send-otp", json={"identity": another_test_email, "type": "email"})
+        r = client.post(f"{BASE_URL}/auth/create-account", json={"identity": another_test_email, "type": "email"})
         assert r.status_code == 200
         another_otp_id = r.json()["data"]["otpId"]
 
@@ -184,9 +184,9 @@ def test_registration_flow():
         json_resp = r.json()
         error_msg = json_resp.get("message", "") or json_resp.get("detail", "")
         assert "Phone number is already in use" in error_msg, f"Expected conflict message, got: {json_resp}"
-        print("✅ Failed with duplicate phone number (correctly validated).")
+        print("[SUCCESS] Failed with duplicate phone number (correctly validated).")
         
-        print("\n🎉 ALL TESTS PASSED SUCCESSFULLY! Endpoint is fully functional.")
+        print("\n[SUCCESS] ALL TESTS PASSED SUCCESSFULLY! Endpoint is fully functional.")
 
 if __name__ == "__main__":
     test_registration_flow()
