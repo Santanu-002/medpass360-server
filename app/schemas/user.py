@@ -65,6 +65,7 @@ class ProfileBase(CamelModel):
     
     created_by: Optional[str] = Field(None, max_length=36)
     relation: Optional[str] = Field("self", max_length=50)
+    is_verified: bool = False
     
     vitals: Optional[VitalsUpdate] = None
     emergency_contact: Optional[EmergencyContactUpdate] = None
@@ -131,6 +132,7 @@ class UserResponse(UserBase):
     is_health_profile_completed: bool
     is_biometric_setup_completed: bool
     profile: Optional[ProfileResponse] = None
+    managed_profiles: List[ProfileResponse] = []
 
     class Config:
         from_attributes = True

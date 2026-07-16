@@ -58,7 +58,8 @@ def create_profile(
         phone_number=phone_number,
         email=email,
         created_by=created_by or user_uid,
-        relation=relation
+        relation=relation,
+        is_verified=True if relation == "self" else False
     )
     db.add(db_profile)
     db.commit()
@@ -127,7 +128,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                     phone_number=identity if "@" not in identity else None,
                     email=identity if "@" in identity else None,
                     created_by=user_uid,
-                    relation=care.get("relation", "other")
+                    relation=care.get("relation", "other"),
+                    is_verified=False
                 )
                 db.add(care_profile)
                 db.commit()

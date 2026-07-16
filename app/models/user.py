@@ -21,6 +21,10 @@ class User(Base):
     created_profiles = relationship("Profile", back_populates="creator", foreign_keys="[Profile.created_by]")
 
     @property
+    def managed_profiles(self):
+        return self.created_profiles
+
+    @property
     def is_profile_completed(self) -> bool:
         return self.profile is not None
 

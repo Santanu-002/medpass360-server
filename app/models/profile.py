@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey, Date, DateTime, Integer, JSON
+from sqlalchemy import Column, String, ForeignKey, Date, DateTime, Integer, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -21,6 +21,7 @@ class Profile(Base):
     
     created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True)
     relation = Column(String(50), nullable=False, default="self")
+    is_verified = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
