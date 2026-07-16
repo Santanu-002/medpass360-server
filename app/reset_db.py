@@ -39,6 +39,14 @@ def reset_database():
     Base.metadata.create_all(bind=engine)
     print("Database schema created successfully!")
 
+    print("Registering database schema with Alembic version tracking...")
+    with engine.connect() as conn:
+        conn.execute(text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);'))
+        conn.execute(text('DELETE FROM alembic_version;'))
+        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('c5a1c8662497');"))
+        conn.commit()
+    print("Alembic version set to head ('c5a1c8662497') successfully!")
+
     print("Seeding default medical options...")
     from app.core.seeding import seed_default_medical_options
     from sqlalchemy.orm import sessionmaker
