@@ -1,9 +1,9 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey, Date, DateTime, Integer
+from sqlalchemy import Column, String, ForeignKey, Date, DateTime, Integer, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
-from typing import Optional
+from typing import Optional, List
 
 class Profile(Base):
     __tablename__ = "profiles"
@@ -36,24 +36,46 @@ class Profile(Base):
     additional_detail_rel = relationship("AdditionalDetail", back_populates="profile", uselist=False, cascade="all, delete-orphan")
 
     @property
-    def blood_type(self) -> Optional[str]:
-        return self.vitals_rel.blood_type if self.vitals_rel else None
+    def vitals(self) -> Optional[dict]:
+        if not self.vitals_rel:
+            return None
+        
+        height_data = None
+        if self.vitals_rel.height:
+            parts = self.vitals_rel.height.split(" ", 1)
+            if len(parts) == 2:
+                height_data = {"value": parts[0], "unit": parts[1]}
+            else:
+                height_data = {"value": parts[0], "unit": "cm"}
+                
+        weight_data = None
+        if self.vitals_rel.weight:
+            parts = self.vitals_rel.weight.split(" ", 1)
+            if len(parts) == 2:
+                weight_data = {"value": parts[0], "unit": parts[1]}
+            else:
+                weight_data = {"value": parts[0], "unit": "kg"}
+
+        return {
+            "bloodType": self.vitals_rel.blood_type,
+            "height": height_data,
+            "weight": weight_data
+        }
 
     @property
-    def emergency_contact_name(self) -> Optional[str]:
-        return self.emergency_contact_rel.name if self.emergency_contact_rel else None
-
-    @property
-    def emergency_contact_phone(self) -> Optional[str]:
-        return self.emergency_contact_rel.phone if self.emergency_contact_rel else None
+    def emergency_contact(self) -> Optional[dict]:
+        if not self.emergency_contact_rel:
+            return None
+        return {
+            "name": self.emergency_contact_rel.name,
+            "phone": self.emergency_contact_rel.phone
+        }
 
     @property
     def allergies(self) -> Optional[dict]:
-        drug = [a.name for a in self.allergies_rel if a.allergy_type == "drug"]
-        food = [a.name for a in self.allergies_rel if a.allergy_type == "food"]
-        env = [a.name for a in self.allergies_rel if a.allergy_type == "environmental"]
-        if not drug and not food and not env:
-            return None
+        drug = [{"uid": "", "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "drug"]
+        food = [{"uid": "", "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "food"]
+        env = [{"uid": "", "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "environmental"]
         return {
             "drug": drug,
             "food": food,
@@ -61,56 +83,58 @@ class Profile(Base):
         }
 
     @property
-    def medical_conditions(self) -> Optional[dict]:
-        chronic = [c.name for c in self.conditions_rel if c.condition_type == "chronic"]
-        syndromes = [c.name for c in self.conditions_rel if c.condition_type == "syndrome"]
-        durations = {c.name: c.duration for c in self.conditions_rel if c.duration}
-        
-        lifestyle = {}
-        if self.lifestyle_rel:
-            lifestyle = {
-                "smoking": self.lifestyle_rel.smoking,
-                "alcohol": self.lifestyle_rel.alcohol,
-                "physicalActivity": self.lifestyle_rel.physical_activity
-            }
+    def chronic_conditions(self) -> List[dict]:
+        return [{"uid": "", "displayName": c.name} for c in self.conditions_rel if c.condition_type == "chronic"]
 
-        recent_history = {}
-        if self.lifestyle_rel:
-            recent_history = {
-                "lastDoctorVisit": self.lifestyle_rel.last_doctor_visit.isoformat() if self.lifestyle_rel.last_doctor_visit else None,
-                "visitReason": self.lifestyle_rel.visit_reason,
-                "recentSurgeries": self.lifestyle_rel.recent_surgeries
-            }
+    @property
+    def syndromes(self) -> List[dict]:
+        return [{"uid": "", "displayName": c.name} for c in self.conditions_rel if c.condition_type == "syndrome"]
 
-        family_history = [f.name for f in self.family_history_rel]
-        additional_notes = self.additional_detail_rel.additional_notes if self.additional_detail_rel else ""
-        
-        current_meds = []
-        for m in self.medications_rel:
-            current_meds.append({
-                "name": m.name,
-                "dosage": m.dosage,
-                "frequency": m.frequency
-            })
+    @property
+    def durations(self) -> dict:
+        return {c.name: c.duration for c in self.conditions_rel if c.duration}
 
-        height = self.vitals_rel.height if self.vitals_rel else None
-        weight = self.vitals_rel.weight if self.vitals_rel else None
-
-        result = {
-            "chronicConditions": chronic,
-            "syndromes": syndromes,
-            "durations": durations,
-            "lifestyle": lifestyle,
-            "recentHistory": recent_history,
-            "familyHistory": family_history,
-            "additionalNotes": additional_notes,
-            "currentMedications": current_meds
+    @property
+    def lifestyle(self) -> Optional[dict]:
+        if not self.lifestyle_rel:
+            return None
+        return {
+            "smoking": self.lifestyle_rel.smoking,
+            "alcohol": self.lifestyle_rel.alcohol,
+            "physicalActivity": self.lifestyle_rel.physical_activity
         }
-        if height:
-            result["height"] = height
-        if weight:
-            result["weight"] = weight
-        return result
+
+    @property
+    def recent_history(self) -> Optional[dict]:
+        if not self.lifestyle_rel:
+            return None
+        return {
+            "lastDoctorVisit": self.lifestyle_rel.last_doctor_visit.isoformat() if self.lifestyle_rel.last_doctor_visit else None,
+            "visitReason": self.lifestyle_rel.visit_reason,
+            "recentSurgeries": self.lifestyle_rel.recent_surgeries
+        }
+
+    @property
+    def family_history(self) -> List[dict]:
+        return [{"uid": "", "displayName": f.name} for f in self.family_history_rel]
+
+    @property
+    def additional_notes(self) -> str:
+        return self.additional_detail_rel.additional_notes if self.additional_detail_rel else ""
+
+    @property
+    def current_medications(self) -> List[dict]:
+        return [{
+            "name": m.name,
+            "slug": m.slug,
+            "dosage": m.dosage,
+            "frequency": m.frequency,
+            "timings": m.timings,
+            "instructions": m.instructions,
+            "foodRelation": m.food_relation,
+            "tags": m.tags
+        } for m in self.medications_rel]
+
 
 
 class Vital(Base):
@@ -160,10 +184,18 @@ class Medication(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(150), nullable=False)
+    slug = Column(String(150), nullable=True)
     dosage = Column(String(100), nullable=True)
     frequency = Column(String(100), nullable=True)
+    
+    # New columns
+    timings = Column(JSON, nullable=True)
+    instructions = Column(String(255), nullable=True)
+    food_relation = Column(String(100), nullable=True)
+    tags = Column(JSON, nullable=True)
 
     profile = relationship("Profile", back_populates="medications_rel")
+
 
 
 class Lifestyle(Base):

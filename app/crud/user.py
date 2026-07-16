@@ -85,122 +85,160 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         if key in update_data:
             setattr(db_profile, key, update_data[key])
 
-    # 2. Update Vitals (bloodType, height, weight)
-    if "blood_type" in update_data or "medical_conditions" in update_data:
+    # 2. Update Vitals (blood_type, height, weight)
+    if "vitals" in update_data and update_data["vitals"]:
+        vitals_data = update_data["vitals"]
         if not db_profile.vitals_rel:
             db_profile.vitals_rel = Vital(profile_id=db_profile.id)
             db.add(db_profile.vitals_rel)
-        
-        if "blood_type" in update_data:
-            db_profile.vitals_rel.blood_type = update_data["blood_type"]
+        if "blood_type" in vitals_data:
+            db_profile.vitals_rel.blood_type = vitals_data["blood_type"]
+        if "height" in vitals_data and vitals_data["height"]:
+            h = vitals_data["height"]
+            unit_val = h['unit'].value if hasattr(h['unit'], 'value') else h['unit']
+            db_profile.vitals_rel.height = f"{h['value']} {unit_val}"
+        if "weight" in vitals_data and vitals_data["weight"]:
+            w = vitals_data["weight"]
+            unit_val = w['unit'].value if hasattr(w['unit'], 'value') else w['unit']
+            db_profile.vitals_rel.weight = f"{w['value']} {unit_val}"
 
-        med_cond = update_data.get("medical_conditions")
-        if med_cond and isinstance(med_cond, dict):
-            if "height" in med_cond:
-                db_profile.vitals_rel.height = med_cond["height"]
-            if "weight" in med_cond:
-                db_profile.vitals_rel.weight = med_cond["weight"]
 
     # 3. Update Emergency Contact
-    if "emergency_contact_name" in update_data or "emergency_contact_phone" in update_data:
+    if "emergency_contact" in update_data and update_data["emergency_contact"]:
+        contact_data = update_data["emergency_contact"]
         if not db_profile.emergency_contact_rel:
             db_profile.emergency_contact_rel = EmergencyContact(profile_id=db_profile.id)
             db.add(db_profile.emergency_contact_rel)
-        
-        if "emergency_contact_name" in update_data:
-            db_profile.emergency_contact_rel.name = update_data["emergency_contact_name"]
-        if "emergency_contact_phone" in update_data:
-            db_profile.emergency_contact_rel.phone = update_data["emergency_contact_phone"]
+        if "name" in contact_data:
+            db_profile.emergency_contact_rel.name = contact_data["name"]
+        if "phone" in contact_data:
+            db_profile.emergency_contact_rel.phone = contact_data["phone"]
 
     # 4. Update Allergies
     if "allergies" in update_data:
-        # Clear existing
         db.query(Allergy).filter(Allergy.profile_id == db_profile.id).delete()
         allergies_dict = update_data["allergies"]
         if allergies_dict and isinstance(allergies_dict, dict):
             for a_type in ["drug", "food", "environmental"]:
-                names = allergies_dict.get(a_type, [])
-                if names and isinstance(names, list):
-                    for name in names:
+                items = allergies_dict.get(a_type, [])
+                if items and isinstance(items, list):
+                    for item in items:
+                        name = item["displayName"]
                         db.add(Allergy(profile_id=db_profile.id, allergy_type=a_type, name=name))
 
-    # 5. Update Medical Conditions, Medications, Lifestyle, Family History, Additional Details
-    if "medical_conditions" in update_data:
-        med_cond = update_data["medical_conditions"]
-        if med_cond and isinstance(med_cond, dict):
-            # Clear existing conditions
-            db.query(MedicalCondition).filter(MedicalCondition.profile_id == db_profile.id).delete()
-            durations = med_cond.get("durations", {}) or {}
+    # 5. Update Conditions (Chronic, Syndromes, Durations)
+    if any(k in update_data for k in ["chronic_conditions", "syndromes", "durations"]):
+        db.query(MedicalCondition).filter(MedicalCondition.profile_id == db_profile.id).delete()
+        durations = update_data.get("durations") or {}
+        
+        chronic = update_data.get("chronic_conditions") or []
+        for item in chronic:
+            name = item["displayName"]
+            dur = durations.get(name)
+            db.add(MedicalCondition(profile_id=db_profile.id, condition_type="chronic", name=name, duration=dur))
             
-            # Chronic conditions
-            chronic = med_cond.get("chronicConditions", [])
-            if chronic and isinstance(chronic, list):
-                for name in chronic:
-                    dur = durations.get(name)
-                    db.add(MedicalCondition(profile_id=db_profile.id, condition_type="chronic", name=name, duration=dur))
-            
-            # Syndromes
-            syndromes = med_cond.get("syndromes", [])
-            if syndromes and isinstance(syndromes, list):
-                for name in syndromes:
-                    dur = durations.get(name)
-                    db.add(MedicalCondition(profile_id=db_profile.id, condition_type="syndrome", name=name, duration=dur))
+        syndromes = update_data.get("syndromes") or []
+        for item in syndromes:
+            name = item["displayName"]
+            dur = durations.get(name)
+            db.add(MedicalCondition(profile_id=db_profile.id, condition_type="syndrome", name=name, duration=dur))
 
-            # Medications
-            db.query(Medication).filter(Medication.profile_id == db_profile.id).delete()
-            meds = med_cond.get("currentMedications", [])
-            if meds and isinstance(meds, list):
-                for m in meds:
-                    if isinstance(m, dict) and m.get("name"):
-                        db.add(Medication(
-                            profile_id=db_profile.id,
-                            name=m["name"],
-                            dosage=m.get("dosage"),
-                            frequency=m.get("frequency")
-                        ))
+    # 6. Update Lifestyle
+    if "lifestyle" in update_data and update_data["lifestyle"]:
+        ls = update_data["lifestyle"]
+        if not db_profile.lifestyle_rel:
+            db_profile.lifestyle_rel = Lifestyle(profile_id=db_profile.id)
+            db.add(db_profile.lifestyle_rel)
+        if "smoking" in ls:
+            db_profile.lifestyle_rel.smoking = ls["smoking"]
+        if "alcohol" in ls:
+            db_profile.lifestyle_rel.alcohol = ls["alcohol"]
+        if "physical_activity" in ls:
+            db_profile.lifestyle_rel.physical_activity = ls["physical_activity"]
 
-            # Lifestyle
-            lifestyle_data = med_cond.get("lifestyle", {}) or {}
-            history_data = med_cond.get("recentHistory", {}) or {}
-            if lifestyle_data or history_data:
-                if not db_profile.lifestyle_rel:
-                    db_profile.lifestyle_rel = Lifestyle(profile_id=db_profile.id)
-                    db.add(db_profile.lifestyle_rel)
-                
-                if "smoking" in lifestyle_data:
-                    db_profile.lifestyle_rel.smoking = lifestyle_data["smoking"]
-                if "alcohol" in lifestyle_data:
-                    db_profile.lifestyle_rel.alcohol = lifestyle_data["alcohol"]
-                if "physicalActivity" in lifestyle_data:
-                    db_profile.lifestyle_rel.physical_activity = lifestyle_data["physicalActivity"]
-                
-                if "lastDoctorVisit" in history_data and history_data["lastDoctorVisit"]:
-                    try:
-                        visit_date = date.fromisoformat(history_data["lastDoctorVisit"])
-                        db_profile.lifestyle_rel.last_doctor_visit = visit_date
-                    except ValueError:
-                        pass
-                if "visitReason" in history_data:
-                    db_profile.lifestyle_rel.visit_reason = history_data["visitReason"]
-                if "recentSurgeries" in history_data:
-                    db_profile.lifestyle_rel.recent_surgeries = history_data["recentSurgeries"]
+    # 7. Update Recent History
+    if "recent_history" in update_data and update_data["recent_history"]:
+        rh = update_data["recent_history"]
+        if not db_profile.lifestyle_rel:
+            db_profile.lifestyle_rel = Lifestyle(profile_id=db_profile.id)
+            db.add(db_profile.lifestyle_rel)
+        if "last_doctor_visit" in rh and rh["last_doctor_visit"]:
+            try:
+                visit_date = date.fromisoformat(rh["last_doctor_visit"])
+                db_profile.lifestyle_rel.last_doctor_visit = visit_date
+            except ValueError:
+                pass
+        if "visit_reason" in rh:
+            db_profile.lifestyle_rel.visit_reason = rh["visit_reason"]
+        if "recent_surgeries" in rh:
+            db_profile.lifestyle_rel.recent_surgeries = rh["recent_surgeries"]
 
-            # Family History
-            db.query(FamilyHistory).filter(FamilyHistory.profile_id == db_profile.id).delete()
-            fam = med_cond.get("familyHistory", [])
-            if fam and isinstance(fam, list):
-                for name in fam:
-                    db.add(FamilyHistory(profile_id=db_profile.id, name=name))
+    # 8. Update Family History
+    if "family_history" in update_data:
+        db.query(FamilyHistory).filter(FamilyHistory.profile_id == db_profile.id).delete()
+        fam = update_data["family_history"] or []
+        for item in fam:
+            db.add(FamilyHistory(profile_id=db_profile.id, name=item["displayName"]))
 
-            # Additional notes
-            notes = med_cond.get("additionalNotes", "")
-            if notes is not None:
-                if not db_profile.additional_detail_rel:
-                    db_profile.additional_detail_rel = AdditionalDetail(profile_id=db_profile.id)
-                    db.add(db_profile.additional_detail_rel)
-                db_profile.additional_detail_rel.additional_notes = notes
+    # 9. Update Additional Notes
+    if "additional_notes" in update_data:
+        notes = update_data["additional_notes"]
+        if notes is not None:
+            if not db_profile.additional_detail_rel:
+                db_profile.additional_detail_rel = AdditionalDetail(profile_id=db_profile.id)
+                db.add(db_profile.additional_detail_rel)
+            db_profile.additional_detail_rel.additional_notes = notes
+
+    # 10. Update Medications
+    if "current_medications" in update_data:
+        db.query(Medication).filter(Medication.profile_id == db_profile.id).delete()
+        meds = update_data["current_medications"] or []
+        for m in meds:
+            db.add(Medication(
+                profile_id=db_profile.id,
+                name=m["name"],
+                slug=m.get("slug"),
+                dosage=m.get("dosage"),
+                frequency=m.get("frequency"),
+                timings=m.get("timings"),
+                instructions=m.get("instructions"),
+                food_relation=m.get("foodRelation"),
+                tags=m.get("tags")
+            ))
 
     db.commit()
     db.refresh(db_profile)
     return db_profile
+
+
+
+def get_user_by_identity(db: Session, identity: str) -> Optional[User]:
+    """
+    Check if a user exists by a given identity (either primary phone number on User, 
+    or email/secondary phone number on Profile).
+    Returns the User model if found, else None.
+    """
+    # 1. Check primary phone number in User
+    user = db.query(User).filter(User.phone_number == identity).first()
+    if user:
+        return user
+    
+    # 2. Check email or phone number in Profile
+    db_profile = db.query(Profile).filter(
+        (Profile.email == identity) | (Profile.phone_number == identity)
+    ).first()
+    if db_profile:
+        return db.query(User).filter(User.uid == db_profile.user_id).first()
+        
+    return None
+
+
+def enable_user_biometrics(db: Session, user: User) -> User:
+    """Enables biometric login flags on User and persists it."""
+    user.has_biometrics = True
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
 

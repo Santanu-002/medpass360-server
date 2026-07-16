@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import date, datetime
-
+from enum import Enum
 
 # Helper config for camelCase aliases
 class CamelModel(BaseModel):
@@ -13,13 +13,42 @@ class CamelModel(BaseModel):
         )
 
 
-from enum import Enum
-
 class Gender(str, Enum):
     MALE = "Male"
     FEMALE = "Female"
     OTHER = "Other"
     PREFER_NOT_TO_SAY = "Prefer not to say"
+
+
+class HeightUnit(str, Enum):
+    CM = "cm"
+    FT_IN = "ft-in"
+
+
+class WeightUnit(str, Enum):
+    KG = "kg"
+    LBS = "lbs"
+
+
+class HeightValue(CamelModel):
+    value: str = Field(..., max_length=20)
+    unit: HeightUnit
+
+
+class WeightValue(CamelModel):
+    value: str = Field(..., max_length=20)
+    unit: WeightUnit
+
+
+class VitalsUpdate(CamelModel):
+    blood_type: Optional[str] = Field(None, max_length=10)
+    height: Optional[HeightValue] = None
+    weight: Optional[WeightValue] = None
+
+
+class EmergencyContactUpdate(CamelModel):
+    name: Optional[str] = Field(None, max_length=150)
+    phone: Optional[str] = Field(None, max_length=20)
 
 
 class ProfileBase(CamelModel):
@@ -30,11 +59,25 @@ class ProfileBase(CamelModel):
     date_of_birth: Optional[date] = None
     gender: Optional[Gender] = None
     avatar: Optional[str] = Field(None, max_length=500)
-    blood_type: Optional[str] = Field(None, max_length=10)
+    
+    profile_target: Optional[str] = Field(None, max_length=50)
+    care_person: Optional[Dict[str, Any]] = None
+    
+    vitals: Optional[VitalsUpdate] = None
+    emergency_contact: Optional[EmergencyContactUpdate] = None
+    
     allergies: Optional[Dict[str, Any]] = None
-    medical_conditions: Optional[Dict[str, Any]] = None
-    emergency_contact_name: Optional[str] = Field(None, max_length=150)
-    emergency_contact_phone: Optional[str] = Field(None, max_length=20)
+    
+    chronic_conditions: Optional[List[Dict[str, Any]]] = None
+    syndromes: Optional[List[Dict[str, Any]]] = None
+    durations: Optional[Dict[str, str]] = None
+    
+    lifestyle: Optional[Dict[str, Any]] = None
+    recent_history: Optional[Dict[str, Any]] = None
+    
+    family_history: Optional[List[Dict[str, Any]]] = None
+    additional_notes: Optional[str] = None
+    current_medications: Optional[List[Dict[str, Any]]] = None
 
 
 class ProfileCreate(ProfileBase):
@@ -43,6 +86,7 @@ class ProfileCreate(ProfileBase):
 
 class ProfileUpdate(ProfileBase):
     pass
+
 
 
 class RegisterRequest(CamelModel):
