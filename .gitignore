@@ -22,3 +22,6 @@ venv.bak/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Uploaded media files
+uploads/
