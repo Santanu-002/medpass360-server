@@ -131,8 +131,7 @@ class UserResponse(UserBase):
     is_profile_completed: bool
     is_health_profile_completed: bool
     is_biometric_setup_completed: bool
-    profile: Optional[ProfileResponse] = None
-    managed_profiles: List[ProfileResponse] = []
+    profiles: List[ProfileResponse] = []
 
     class Config:
         from_attributes = True

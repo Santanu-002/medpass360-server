@@ -98,7 +98,7 @@ def test_health_profile_flow():
         update_resp = r.json()
         assert update_resp["success"] is True
         
-        updated_profile = update_resp["data"]["profile"]
+        updated_profile = next(p for p in update_resp["data"]["profiles"] if p["relation"] == "self")
         assert updated_profile["vitals"]["bloodType"] == "B+"
         assert updated_profile["vitals"]["height"]["value"] == "180"
         assert updated_profile["vitals"]["height"]["unit"] == "cm"
@@ -120,7 +120,7 @@ def test_health_profile_flow():
         r = client.get(f"{BASE_URL}/auth/profile")
         assert r.status_code == 200, f"Failed GET profile: {r.text}"
         get_resp = r.json()
-        persisted_profile = get_resp["data"]["profile"]
+        persisted_profile = next(p for p in get_resp["data"]["profiles"] if p["relation"] == "self")
         assert persisted_profile["vitals"]["bloodType"] == "B+"
         assert persisted_profile["emergencyContact"]["name"] == "Bob Smith"
         assert persisted_profile["allergies"]["food"][0]["displayName"] == "Nuts"
@@ -219,7 +219,7 @@ def test_health_profile_flow():
         mary_client = httpx.Client(headers={**device_headers, "Authorization": f"Bearer {access_token_3}"}, timeout=30.0)
         r = mary_client.get(f"{BASE_URL}/auth/profile")
         assert r.status_code == 200, f"Failed to get Mary's profile: {r.text}"
-        mary_profile = r.json()["data"]["profile"]
+        mary_profile = next(p for p in r.json()["data"]["profiles"] if p["relation"] == "Spouse")
         
         assert mary_profile["firstName"] == "Mary"
         assert mary_profile["lastName"] == "Doe"

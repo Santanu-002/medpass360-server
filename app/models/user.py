@@ -21,8 +21,17 @@ class User(Base):
     created_profiles = relationship("Profile", back_populates="creator", foreign_keys="[Profile.created_by]")
 
     @property
-    def managed_profiles(self):
-        return self.created_profiles
+    def profiles(self):
+        res = []
+        seen_uids = set()
+        if self.profile:
+            res.append(self.profile)
+            seen_uids.add(self.profile.uid)
+        for p in self.created_profiles:
+            if p.uid not in seen_uids:
+                res.append(p)
+                seen_uids.add(p.uid)
+        return res
 
     @property
     def is_profile_completed(self) -> bool:
