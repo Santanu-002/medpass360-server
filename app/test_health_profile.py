@@ -36,13 +36,16 @@ def test_health_profile_flow():
         client.headers["Authorization"] = f"Bearer {access_token}"
         
         print("3. Registering user profile...")
-        form_data = {
+        register_payload = {
             "firstName": "Alice",
             "lastName": "Smith",
             "gender": "Female",
-            "dateOfBirth": "1990-08-20"
+            "dateOfBirth": "1990-08-20",
+            "avatar": None,
+            "phoneNumber": None,
+            "email": None
         }
-        r = client.post(f"{BASE_URL}/auth/register", data=form_data)
+        r = client.post(f"{BASE_URL}/auth/register", json=register_payload)
         assert r.status_code == 200, f"Failed register: {r.text}"
         
         health_payload = {
