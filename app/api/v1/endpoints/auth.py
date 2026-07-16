@@ -180,7 +180,6 @@ async def verify_otp(
 
     # 3. Create or update session for this device
     device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
-    device_name = req_raw.headers.get("x-device-name")
     device_model = req_raw.headers.get("x-device-model")
     os_version = req_raw.headers.get("x-os-version")
     platform = req_raw.headers.get("x-platform")
@@ -192,7 +191,6 @@ async def verify_otp(
         device_id=device_id,
         refresh_token=refresh["token"],
         expires_at=expires_at,
-        device_name=device_name,
         device_model=device_model,
         os_version=os_version,
         platform=platform,
@@ -276,7 +274,6 @@ async def refresh_tokens(
     expires_at = datetime.fromisoformat(refresh["expiresAt"].replace("Z", "+00:00"))
 
     # Update existing session row (do NOT insert update using device-id)
-    device_name = req_raw.headers.get("x-device-name")
     device_model = req_raw.headers.get("x-device-model")
     os_version = req_raw.headers.get("x-os-version")
     platform = req_raw.headers.get("x-platform")
@@ -287,7 +284,6 @@ async def refresh_tokens(
         device_id=device_id,
         refresh_token=refresh["token"],
         expires_at=expires_at,
-        device_name=device_name,
         device_model=device_model,
         os_version=os_version,
         platform=platform,

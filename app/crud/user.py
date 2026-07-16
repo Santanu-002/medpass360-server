@@ -249,7 +249,6 @@ def create_or_update_user_session(
     device_id: str,
     refresh_token: str,
     expires_at: datetime,
-    device_name: Optional[str] = None,
     device_model: Optional[str] = None,
     os_version: Optional[str] = None,
     platform: Optional[str] = None,
@@ -269,8 +268,6 @@ def create_or_update_user_session(
         session.refresh_token = refresh_token
         session.expires_at = expires_at
         session.is_active = True
-        if device_name:
-            session.device_name = device_name
         if device_model:
             session.device_model = device_model
         if os_version:
@@ -281,7 +278,6 @@ def create_or_update_user_session(
         session = UserSession(
             user_id=user.id,
             device_id=device_id,
-            device_name=device_name,
             device_model=device_model,
             os_version=os_version,
             platform=platform,

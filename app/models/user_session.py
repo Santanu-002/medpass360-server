@@ -9,7 +9,6 @@ class UserSession(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     device_id = Column(String(150), nullable=False, index=True)
-    device_name = Column(String(150), nullable=True)
     device_model = Column(String(150), nullable=True)
     os_version = Column(String(150), nullable=True)
     platform = Column(String(150), nullable=True)
