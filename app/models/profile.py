@@ -77,9 +77,9 @@ class Profile(Base):
 
     @property
     def allergies(self) -> Optional[dict]:
-        drug = [{"uid": "", "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "drug"]
-        food = [{"uid": "", "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "food"]
-        env = [{"uid": "", "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "environmental"]
+        drug = [{"uid": str(a.id), "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "drug"]
+        food = [{"uid": str(a.id), "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "food"]
+        env = [{"uid": str(a.id), "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "environmental"]
         return {
             "drug": drug,
             "food": food,
@@ -88,11 +88,11 @@ class Profile(Base):
 
     @property
     def chronic_conditions(self) -> List[dict]:
-        return [{"uid": "", "displayName": c.name} for c in self.conditions_rel if c.condition_type == "chronic"]
+        return [{"uid": str(c.id), "displayName": c.name} for c in self.conditions_rel if c.condition_type == "chronic"]
 
     @property
     def syndromes(self) -> List[dict]:
-        return [{"uid": "", "displayName": c.name} for c in self.conditions_rel if c.condition_type == "syndrome"]
+        return [{"uid": str(c.id), "displayName": c.name} for c in self.conditions_rel if c.condition_type == "syndrome"]
 
     @property
     def durations(self) -> dict:
@@ -120,7 +120,7 @@ class Profile(Base):
 
     @property
     def family_history(self) -> List[dict]:
-        return [{"uid": "", "displayName": f.name} for f in self.family_history_rel]
+        return [{"uid": str(f.id), "displayName": f.name} for f in self.family_history_rel]
 
     @property
     def additional_notes(self) -> str:
@@ -129,6 +129,7 @@ class Profile(Base):
     @property
     def current_medications(self) -> List[dict]:
         return [{
+            "uid": str(m.id),
             "name": m.name,
             "slug": m.slug,
             "dosage": m.dosage,

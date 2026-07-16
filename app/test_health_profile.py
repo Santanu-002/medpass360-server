@@ -93,7 +93,7 @@ def test_health_profile_flow():
             ]
         }
         
-        r = client.put(f"{BASE_URL}/auth/profile", json=health_payload)
+        r = client.post(f"{BASE_URL}/health-profile", json=health_payload)
         assert r.status_code == 200, f"Failed to update health profile: {r.text}"
         update_resp = r.json()
         assert update_resp["success"] is True
@@ -106,9 +106,12 @@ def test_health_profile_flow():
         assert updated_profile["vitals"]["weight"]["unit"] == "kg"
         assert updated_profile["emergencyContact"]["name"] == "Bob Smith"
         assert updated_profile["emergencyContact"]["phone"] == "+15559876543"
-        assert updated_profile["allergies"]["drug"] == [{"uid": "", "displayName": "Penicillin"}]
-        assert updated_profile["chronicConditions"] == [{"uid": "", "displayName": "Asthma"}]
+        assert updated_profile["allergies"]["drug"][0]["displayName"] == "Penicillin"
+        assert updated_profile["allergies"]["drug"][0]["uid"] != ""
+        assert updated_profile["chronicConditions"][0]["displayName"] == "Asthma"
+        assert updated_profile["chronicConditions"][0]["uid"] != ""
         assert updated_profile["currentMedications"][0]["name"] == "Albuterol"
+        assert updated_profile["currentMedications"][0]["uid"] != ""
         assert updated_profile["currentMedications"][0]["timings"] == ["morning"]
         print("[SUCCESS] Health Profile updated successfully. Values returned match request.")
         
@@ -120,7 +123,8 @@ def test_health_profile_flow():
         persisted_profile = get_resp["data"]["profile"]
         assert persisted_profile["vitals"]["bloodType"] == "B+"
         assert persisted_profile["emergencyContact"]["name"] == "Bob Smith"
-        assert persisted_profile["allergies"]["food"] == [{"uid": "", "displayName": "Nuts"}]
+        assert persisted_profile["allergies"]["food"][0]["displayName"] == "Nuts"
+        assert persisted_profile["allergies"]["food"][0]["uid"] != ""
         assert persisted_profile["lifestyle"]["smoking"] == "Never"
         print("[SUCCESS] Database persistence verified. All details saved correctly.")
         
@@ -196,7 +200,7 @@ def test_health_profile_flow():
             "currentMedications": []
         }
         
-        r = user_a_client.put(f"{BASE_URL}/auth/profile", json=care_payload)
+        r = user_a_client.post(f"{BASE_URL}/health-profile", json=care_payload)
         assert r.status_code == 200, f"Failed to update care profile: {r.text}"
         res = r.json()
         assert res["success"] is True
@@ -223,7 +227,8 @@ def test_health_profile_flow():
         assert mary_profile["relation"] == "Spouse"
         assert mary_profile["createdBy"] == user_a_uid
         assert mary_profile["vitals"]["bloodType"] == "A-"
-        assert mary_profile["allergies"]["drug"] == [{"uid": "", "displayName": "Sulfa"}]
+        assert mary_profile["allergies"]["drug"][0]["displayName"] == "Sulfa"
+        assert mary_profile["allergies"]["drug"][0]["uid"] != ""
         print("[SUCCESS] Care person profile successfully retrieved and verified.")
         
         print("\n[SUCCESS] HEALTH PROFILE INTEGRATION TEST COMPLETED SUCCESSFULLY!")
