@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import date, datetime
+from fastapi import HTTPException, status
 from app.models import (
     User,
     UserSession,
@@ -90,14 +91,18 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         care = profile_update.care_person
         identity = care.get("identity")
         if identity:
-            # 1. Look up user by identity
             care_user = get_user_by_identity(db, identity)
-            if not care_user:
-                # Create a new user
-                care_user = User(phone_number=identity)
-                db.add(care_user)
-                db.commit()
-                db.refresh(care_user)
+            if care_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A user with this phone number or email already exists."
+                )
+            
+            # Create a new user
+            care_user = User(phone_number=identity)
+            db.add(care_user)
+            db.commit()
+            db.refresh(care_user)
             
             # 2. Look up profile of this care_user
             care_profile = db.query(Profile).filter(Profile.user_id == care_user.uid).first()
