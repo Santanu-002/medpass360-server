@@ -124,6 +124,108 @@ def test_health_profile_flow():
         assert persisted_profile["lifestyle"]["smoking"] == "Never"
         print("[SUCCESS] Database persistence verified. All details saved correctly.")
         
+        # 6. Test 'Someone I Care For' flow
+        print("\n6. Testing 'Someone I Care For' flow...")
+        care_phone = f"+1555{int(time.time()) + 1}"
+        print(f"Creating a new primary user A ({care_phone})...")
+        r = client.post(f"{BASE_URL}/auth/create-account", json={"identity": care_phone, "type": "phone"})
+        assert r.status_code == 200, f"Failed user A create-account: {r.text}"
+        otp_id_2 = r.json()["data"]["otpId"]
+        
+        r = client.post(f"{BASE_URL}/auth/verify-otp", json={"otpId": otp_id_2, "code": "123456"})
+        assert r.status_code == 200, f"Failed user A verify-otp: {r.text}"
+        access_token_2 = r.json()["data"]["token"]["accessToken"]
+        
+        # Build client headers for user A
+        user_a_client = httpx.Client(headers={**device_headers, "Authorization": f"Bearer {access_token_2}"}, timeout=30.0)
+        
+        print("Registering user A...")
+        r = user_a_client.post(f"{BASE_URL}/auth/register", json={
+            "firstName": "John",
+            "lastName": "Doe",
+            "gender": "Male",
+            "dateOfBirth": "1985-05-15",
+            "avatar": None,
+            "phoneNumber": None,
+            "email": None
+        })
+        assert r.status_code == 200, f"Failed user A register: {r.text}"
+        user_a_uid = r.json()["data"]["uid"]
+        
+        print("Submitting health profile for 'Someone I Care For' (Spouse)...")
+        care_person_identity = f"+1555{int(time.time()) + 100}"
+        care_payload = {
+            "profileTarget": "other",
+            "carePerson": {
+                "name": "Mary Doe",
+                "identity": care_person_identity,
+                "gender": "Female",
+                "dob": "1987-10-10",
+                "relation": "Spouse",
+                "avatar": "/uploads/mary.jpg"
+            },
+            "vitals": {
+                "bloodType": "A-",
+                "height": {"value": "165", "unit": "cm"},
+                "weight": {"value": "60", "unit": "kg"}
+            },
+            "emergencyContact": {
+                "name": "John Doe",
+                "phone": care_phone
+            },
+            "allergies": {
+                "drug": [{"uid": "", "displayName": "Sulfa"}],
+                "food": [],
+                "environmental": []
+            },
+            "chronicConditions": [],
+            "syndromes": [],
+            "durations": {},
+            "lifestyle": {
+                "smoking": "Never",
+                "alcohol": "Never",
+                "physicalActivity": "Sedentary"
+            },
+            "recentHistory": {
+                "lastDoctorVisit": "2026-05-01",
+                "visitReason": "Checkup",
+                "recentSurgeries": "None"
+            },
+            "familyHistory": [],
+            "additionalNotes": "",
+            "currentMedications": []
+        }
+        
+        r = user_a_client.put(f"{BASE_URL}/auth/profile", json=care_payload)
+        assert r.status_code == 200, f"Failed to update care profile: {r.text}"
+        res = r.json()
+        assert res["success"] is True
+        assert res["data"]["isHealthProfileCompleted"] is True
+        
+        print("7. Verifying care person can log in and see their profile...")
+        r = client.post(f"{BASE_URL}/auth/login/otp", json={"identity": care_person_identity, "type": "phone"})
+        assert r.status_code == 200, f"Failed login otp for care person: {r.text}"
+        otp_id_3 = r.json()["data"]["otpId"]
+        
+        r = client.post(f"{BASE_URL}/auth/verify-otp", json={"otpId": otp_id_3, "code": "123456"})
+        assert r.status_code == 200, f"Failed verify-otp for care person: {r.text}"
+        access_token_3 = r.json()["data"]["token"]["accessToken"]
+        
+        # Get Mary's profile
+        mary_client = httpx.Client(headers={**device_headers, "Authorization": f"Bearer {access_token_3}"}, timeout=30.0)
+        r = mary_client.get(f"{BASE_URL}/auth/profile")
+        assert r.status_code == 200, f"Failed to get Mary's profile: {r.text}"
+        mary_profile = r.json()["data"]["profile"]
+        
+        assert mary_profile["firstName"] == "Mary"
+        assert mary_profile["lastName"] == "Doe"
+        assert mary_profile["gender"] == "Female"
+        assert mary_profile["relation"] == "Spouse"
+        assert mary_profile["createdBy"] == user_a_uid
+        assert mary_profile["vitals"]["bloodType"] == "A-"
+        assert mary_profile["allergies"]["drug"] == [{"uid": "", "displayName": "Sulfa"}]
+        print("[SUCCESS] Care person profile successfully retrieved and verified.")
+        
         print("\n[SUCCESS] HEALTH PROFILE INTEGRATION TEST COMPLETED SUCCESSFULLY!")
 
 if __name__ == "__main__":

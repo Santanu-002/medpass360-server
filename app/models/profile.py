@@ -19,11 +19,15 @@ class Profile(Base):
     gender = Column(String(50), nullable=True)
     avatar = Column(String(500), nullable=True)
     
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True)
+    relation = Column(String(50), nullable=False, default="self")
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # 1-to-1 back-reference to User
-    user = relationship("User", back_populates="profile")
+    user = relationship("User", back_populates="profile", foreign_keys=[user_id])
+    creator = relationship("User", back_populates="created_profiles", foreign_keys=[created_by])
 
     # 1-to-1 and 1-to-many child relationships
     vitals_rel = relationship("Vital", back_populates="profile", uselist=False, cascade="all, delete-orphan")

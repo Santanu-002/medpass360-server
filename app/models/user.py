@@ -17,7 +17,8 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # 1-to-1 relationship with Profile
-    profile = relationship("Profile", uselist=False, back_populates="user", cascade="all, delete-orphan")
+    profile = relationship("Profile", uselist=False, back_populates="user", cascade="all, delete-orphan", foreign_keys="[Profile.user_id]")
+    created_profiles = relationship("Profile", back_populates="creator", foreign_keys="[Profile.created_by]")
 
     @property
     def is_profile_completed(self) -> bool:
@@ -27,7 +28,8 @@ class User(Base):
     def is_health_profile_completed(self) -> bool:
         if not self.profile:
             return False
-        return (
+        # Check own profile
+        if (
             self.profile.vitals_rel is not None or 
             self.profile.emergency_contact_rel is not None or
             len(self.profile.allergies_rel) > 0 or
@@ -36,7 +38,24 @@ class User(Base):
             self.profile.lifestyle_rel is not None or
             len(self.profile.family_history_rel) > 0 or
             self.profile.additional_detail_rel is not None
-        )
+        ):
+            return True
+
+        # Check other profiles created by this user
+        for p in self.created_profiles:
+            if p.uid != self.profile.uid:
+                if (
+                    p.vitals_rel is not None or
+                    p.emergency_contact_rel is not None or
+                    len(p.allergies_rel) > 0 or
+                    len(p.conditions_rel) > 0 or
+                    len(p.medications_rel) > 0 or
+                    p.lifestyle_rel is not None or
+                    len(p.family_history_rel) > 0 or
+                    p.additional_detail_rel is not None
+                ):
+                    return True
+        return False
 
     @property
     def is_biometric_setup_completed(self) -> bool:

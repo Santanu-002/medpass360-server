@@ -63,6 +63,9 @@ class ProfileBase(CamelModel):
     profile_target: Optional[str] = Field(None, max_length=50)
     care_person: Optional[Dict[str, Any]] = None
     
+    created_by: Optional[str] = Field(None, max_length=36)
+    relation: Optional[str] = Field("self", max_length=50)
+    
     vitals: Optional[VitalsUpdate] = None
     emergency_contact: Optional[EmergencyContactUpdate] = None
     
