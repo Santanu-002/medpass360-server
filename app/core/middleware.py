@@ -15,7 +15,6 @@ class DeviceHeaderMiddleware(BaseHTTPMiddleware):
 
         required_headers = [
             "x-device-id",
-            "x-device-name",
             "x-device-model",
             "x-os-version",
             "x-platform",
