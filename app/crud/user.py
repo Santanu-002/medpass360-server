@@ -169,9 +169,20 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             if key in update_data:
                 setattr(target_profile, key, update_data[key])
 
+    # Helpers to support both nested health_profile and flat properties in the request payload
+    def has_health_field(field_name: str) -> bool:
+        if "health_profile" in update_data and update_data["health_profile"] is not None:
+            return field_name in update_data["health_profile"]
+        return field_name in update_data
+
+    def get_health_field(field_name: str):
+        if "health_profile" in update_data and update_data["health_profile"] is not None:
+            return update_data["health_profile"].get(field_name)
+        return update_data.get(field_name)
+
     # 2. Update Vitals (blood_type, height, weight)
-    if "vitals" in update_data and update_data["vitals"]:
-        vitals_data = update_data["vitals"]
+    if has_health_field("vitals") and get_health_field("vitals"):
+        vitals_data = get_health_field("vitals")
         if not target_profile.vitals_rel:
             target_profile.vitals_rel = Vital(profile_id=target_profile.id)
             db.add(target_profile.vitals_rel)
@@ -186,10 +197,9 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             unit_val = w['unit'].value if hasattr(w['unit'], 'value') else w['unit']
             target_profile.vitals_rel.weight = f"{w['value']} {unit_val}"
 
-
     # 3. Update Emergency Contact
-    if "emergency_contact" in update_data and update_data["emergency_contact"]:
-        contact_data = update_data["emergency_contact"]
+    if has_health_field("emergency_contact") and get_health_field("emergency_contact"):
+        contact_data = get_health_field("emergency_contact")
         if not target_profile.emergency_contact_rel:
             target_profile.emergency_contact_rel = EmergencyContact(profile_id=target_profile.id)
             db.add(target_profile.emergency_contact_rel)
@@ -199,9 +209,9 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             target_profile.emergency_contact_rel.phone = contact_data["phone"]
 
     # 4. Update Allergies
-    if "allergies" in update_data:
+    if has_health_field("allergies"):
         db.query(Allergy).filter(Allergy.profile_id == target_profile.id).delete()
-        allergies_dict = update_data["allergies"]
+        allergies_dict = get_health_field("allergies")
         if allergies_dict and isinstance(allergies_dict, dict):
             from app.core.utils import slugify
             for a_type in ["drug", "food", "environmental"]:
@@ -220,12 +230,12 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                         ))
 
     # 5. Update Conditions (Chronic, Syndromes, Durations)
-    if any(k in update_data for k in ["chronic_conditions", "syndromes", "durations"]):
+    if any(has_health_field(k) for k in ["chronic_conditions", "syndromes", "durations"]):
         db.query(MedicalCondition).filter(MedicalCondition.profile_id == target_profile.id).delete()
-        durations = update_data.get("durations") or {}
+        durations = get_health_field("durations") or {}
         from app.core.utils import slugify
         
-        chronic = update_data.get("chronic_conditions") or []
+        chronic = get_health_field("chronic_conditions") or []
         for item in chronic:
             name = item["displayName"]
             slug = slugify(name)
@@ -240,7 +250,7 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                 duration=dur
             ))
             
-        syndromes = update_data.get("syndromes") or []
+        syndromes = get_health_field("syndromes") or []
         for item in syndromes:
             name = item["displayName"]
             slug = slugify(name)
@@ -256,8 +266,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             ))
 
     # 6. Update Lifestyle
-    if "lifestyle" in update_data and update_data["lifestyle"]:
-        ls = update_data["lifestyle"]
+    if has_health_field("lifestyle") and get_health_field("lifestyle"):
+        ls = get_health_field("lifestyle")
         if not target_profile.lifestyle_rel:
             target_profile.lifestyle_rel = Lifestyle(profile_id=target_profile.id)
             db.add(target_profile.lifestyle_rel)
@@ -269,8 +279,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             target_profile.lifestyle_rel.physical_activity = ls["physical_activity"]
 
     # 7. Update Recent History
-    if "recent_history" in update_data and update_data["recent_history"]:
-        rh = update_data["recent_history"]
+    if has_health_field("recent_history") and get_health_field("recent_history"):
+        rh = get_health_field("recent_history")
         if not target_profile.lifestyle_rel:
             target_profile.lifestyle_rel = Lifestyle(profile_id=target_profile.id)
             db.add(target_profile.lifestyle_rel)
@@ -286,9 +296,9 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             target_profile.lifestyle_rel.recent_surgeries = rh["recent_surgeries"]
 
     # 8. Update Family History
-    if "family_history" in update_data:
+    if has_health_field("family_history"):
         db.query(FamilyHistory).filter(FamilyHistory.profile_id == target_profile.id).delete()
-        fam = update_data["family_history"] or []
+        fam = get_health_field("family_history") or []
         from app.core.utils import slugify
         for item in fam:
             name = item["displayName"]
@@ -302,8 +312,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             ))
 
     # 9. Update Additional Notes
-    if "additional_notes" in update_data:
-        notes = update_data["additional_notes"]
+    if has_health_field("additional_notes"):
+        notes = get_health_field("additional_notes")
         if notes is not None:
             if not target_profile.additional_detail_rel:
                 target_profile.additional_detail_rel = AdditionalDetail(profile_id=target_profile.id)
@@ -311,9 +321,9 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             target_profile.additional_detail_rel.additional_notes = notes
 
     # 10. Update Medications
-    if "current_medications" in update_data:
+    if has_health_field("current_medications"):
         db.query(Medication).filter(Medication.profile_id == target_profile.id).delete()
-        meds = update_data["current_medications"] or []
+        meds = get_health_field("current_medications") or []
         for m in meds:
             db.add(Medication(
                 profile_id=target_profile.id,

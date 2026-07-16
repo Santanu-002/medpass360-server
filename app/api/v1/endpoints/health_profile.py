@@ -20,14 +20,14 @@ def save_health_profile_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to save health profile."
         )
-    target_user = target_profile.user
-    db.refresh(target_user)
-    user_resp = UserResponse.model_validate(target_user)
+    db.refresh(current_user)
+    user_resp = UserResponse.model_validate(current_user)
     return ApiResponse(
         success=True,
         message="Health profile saved successfully.",
         data=user_resp
     )
+
 
 @router.put("/health-profile", response_model=ApiResponse[UserResponse])
 def save_health_profile_put(
@@ -41,9 +41,8 @@ def save_health_profile_put(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to save health profile."
         )
-    target_user = target_profile.user
-    db.refresh(target_user)
-    user_resp = UserResponse.model_validate(target_user)
+    db.refresh(current_user)
+    user_resp = UserResponse.model_validate(current_user)
     return ApiResponse(
         success=True,
         message="Health profile saved successfully.",

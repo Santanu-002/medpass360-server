@@ -141,6 +141,23 @@ class Profile(Base):
             "tags": m.tags
         } for m in self.medications_rel]
 
+    @property
+    def health_profile(self) -> dict:
+        return {
+            "vitals": self.vitals,
+            "emergency_contact": self.emergency_contact,
+            "allergies": self.allergies,
+            "chronic_conditions": self.chronic_conditions,
+            "syndromes": self.syndromes,
+            "durations": self.durations,
+            "lifestyle": self.lifestyle,
+            "recent_history": self.recent_history,
+            "family_history": self.family_history,
+            "additional_notes": self.additional_notes,
+            "current_medications": self.current_medications,
+        }
+
+
 
 
 class Vital(Base):

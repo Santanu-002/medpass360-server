@@ -51,6 +51,20 @@ class EmergencyContactUpdate(CamelModel):
     phone: Optional[str] = Field(None, max_length=20)
 
 
+class HealthProfileResponse(CamelModel):
+    vitals: Optional[VitalsUpdate] = None
+    emergency_contact: Optional[EmergencyContactUpdate] = None
+    allergies: Optional[Dict[str, Any]] = None
+    chronic_conditions: Optional[List[Dict[str, Any]]] = None
+    syndromes: Optional[List[Dict[str, Any]]] = None
+    durations: Optional[Dict[str, str]] = None
+    lifestyle: Optional[Dict[str, Any]] = None
+    recent_history: Optional[Dict[str, Any]] = None
+    family_history: Optional[List[Dict[str, Any]]] = None
+    additional_notes: Optional[str] = None
+    current_medications: Optional[List[Dict[str, Any]]] = None
+
+
 class ProfileBase(CamelModel):
     first_name: Optional[str] = Field(None, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
@@ -66,31 +80,14 @@ class ProfileBase(CamelModel):
     created_by: Optional[str] = Field(None, max_length=36)
     relation: Optional[str] = Field("self", max_length=50)
     is_verified: bool = False
-    
-    vitals: Optional[VitalsUpdate] = None
-    emergency_contact: Optional[EmergencyContactUpdate] = None
-    
-    allergies: Optional[Dict[str, Any]] = None
-    
-    chronic_conditions: Optional[List[Dict[str, Any]]] = None
-    syndromes: Optional[List[Dict[str, Any]]] = None
-    durations: Optional[Dict[str, str]] = None
-    
-    lifestyle: Optional[Dict[str, Any]] = None
-    recent_history: Optional[Dict[str, Any]] = None
-    
-    family_history: Optional[List[Dict[str, Any]]] = None
-    additional_notes: Optional[str] = None
-    current_medications: Optional[List[Dict[str, Any]]] = None
 
 
 class ProfileCreate(ProfileBase):
-    pass
+    health_profile: Optional[HealthProfileResponse] = None
 
 
 class ProfileUpdate(ProfileBase):
-    pass
-
+    health_profile: Optional[HealthProfileResponse] = None
 
 
 class RegisterRequest(CamelModel):
@@ -109,6 +106,7 @@ class ProfileResponse(ProfileBase):
     user_id: str
     created_at: datetime
     updated_at: datetime
+    health_profile: Optional[HealthProfileResponse] = None
 
     class Config:
         from_attributes = True
