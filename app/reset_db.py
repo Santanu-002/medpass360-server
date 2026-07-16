@@ -15,6 +15,7 @@ from app.models import (
     Lifestyle,
     FamilyHistory,
     AdditionalDetail,
+    MedicalOption,
 )
 
 def reset_database():
@@ -37,6 +38,18 @@ def reset_database():
     Base.metadata.create_all(bind=engine)
     print("Database schema created successfully!")
 
+    print("Seeding default medical options...")
+    from app.core.seeding import seed_default_medical_options
+    from sqlalchemy.orm import sessionmaker
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        seed_default_medical_options(db)
+        print("Default medical options seeded successfully!")
+    finally:
+        db.close()
+
 if __name__ == "__main__":
     # Ensure this is only run in dev environment or with explicit run
     reset_database()
+
