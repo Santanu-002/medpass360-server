@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.utils import format_iso8601
 from app.core.jwt_service import create_access_token, create_refresh_token, decode_token
 from app.api.deps import get_db, get_current_user
-from app.crud.user import get_or_create_user, update_profile, create_profile
+from app.crud.user import get_or_create_user, update_profile, create_profile, get_user_by_identity, enable_user_biometrics
 from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
@@ -41,21 +41,9 @@ async def create_account(
     redis: AsyncRedisDep = None,
     db: Session = Depends(get_db)
 ):
-    from app.models.user import User as DBUser
-    from app.models.profile import Profile as DBProfile
-
     # Enforce that user does not exist
-    user = db.query(DBUser).filter(DBUser.phone_number == request.identity).first()
-    user_exists = user is not None
-
-    if not user_exists:
-        db_profile = db.query(DBProfile).filter(
-            (DBProfile.email == request.identity) | (DBProfile.phone_number == request.identity)
-        ).first()
-        if db_profile:
-            user_exists = True
-
-    if user_exists:
+    user = get_user_by_identity(db, request.identity)
+    if user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="An account already exists with this phone number or email. Please login."
@@ -267,30 +255,13 @@ async def check_exists(
     identity: str,
     db: Session = Depends(get_db)
 ):
-    from app.models.user import User as DBUser
-    from app.models.profile import Profile as DBProfile
-    
-    # Check if this identity exists in User table (as primary credential)
-    user = db.query(DBUser).filter(DBUser.phone_number == identity).first()
-    user_exists = user is not None
-    has_biometrics = user.has_biometrics if user else False
-    
-    # Or in the Profile table (as secondary email or phone number)
-    if not user_exists:
-        db_profile = db.query(DBProfile).filter(
-            (DBProfile.email == identity) | (DBProfile.phone_number == identity)
-        ).first()
-        if db_profile:
-            user_exists = True
-            user = db.query(DBUser).filter(DBUser.uid == db_profile.user_id).first()
-            has_biometrics = user.has_biometrics if user else False
-
+    user = get_user_by_identity(db, identity)
     return ApiResponse(
         success=True,
         message="Checked identity existence successfully.",
         data={
-            "exists": user_exists,
-            "hasBiometrics": has_biometrics
+            "exists": user is not None,
+            "hasBiometrics": user.has_biometrics if user else False
         }
     )
 
@@ -304,9 +275,7 @@ async def enable_biometrics(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    current_user.has_biometrics = True
-    db.add(current_user)
-    db.commit()
+    enable_user_biometrics(db, current_user)
     return ApiResponse(
         success=True,
         message="Biometrics enabled successfully."
@@ -320,21 +289,9 @@ async def login_otp(
     redis: AsyncRedisDep = None,
     db: Session = Depends(get_db)
 ):
-    from app.models.user import User as DBUser
-    from app.models.profile import Profile as DBProfile
-
     # Enforce that user exists
-    user = db.query(DBUser).filter(DBUser.phone_number == request.identity).first()
-    user_exists = user is not None
-
-    if not user_exists:
-        db_profile = db.query(DBProfile).filter(
-            (DBProfile.email == request.identity) | (DBProfile.phone_number == request.identity)
-        ).first()
-        if db_profile:
-            user_exists = True
-
-    if not user_exists:
+    user = get_user_by_identity(db, request.identity)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No account found with this phone number or email. Please create an account."
@@ -424,16 +381,7 @@ async def login(
     request: BiometricLoginRequest,
     db: Session = Depends(get_db)
 ):
-    from app.models.profile import Profile as DBProfile
-    
-    db_user = db.query(User).filter(User.phone_number == request.identity).first()
-    if not db_user:
-        db_profile = db.query(DBProfile).filter(
-            (DBProfile.email == request.identity) | (DBProfile.phone_number == request.identity)
-        ).first()
-        if db_profile:
-            db_user = db.query(User).filter(User.uid == db_profile.user_id).first()
-
+    db_user = get_user_by_identity(db, request.identity)
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -50,6 +50,16 @@ def startup_event():
     alembic_cfg = Config(ini_path)
     command.upgrade(alembic_cfg, "head")
 
+    # Run database seeding
+    from app.core.database import SessionLocal
+    from app.core.seeding import seed_default_medical_options
+    db = SessionLocal()
+    try:
+        seed_default_medical_options(db)
+    finally:
+        db.close()
+
+
 
 # Mount API routers
 # Mount health endpoints at root level for easy server monitoring/pings
