@@ -3,6 +3,7 @@
 ## 🧠 Core Engineering Principles
 This backend is designed with a focus on Clean Architecture, Separation of Concerns, Type Safety, and High Performance. All code must adhere to these foundational rules:
 - **Separation of Concerns**: Keep business logic separated from HTTP handling and database persistence.
+- **Strict Layer Architecture**: Keep routes, business logic, and database queries in separate folders (`api/`, `services/`, and `crud/`). Never run raw database queries directly in the API routes. Never handle FastAPI requests/headers/uploads inside Service or CRUD layers.
 - **Single Responsibility Principle (SRP)**: Each router, service, dependency provider, model, or schema must have one single job.
 - **Type Safety**: Leverage Python type hints, Pydantic data validation schemas, and database session bindings to eliminate runtime typing bugs.
 - **Observability**: Ensure endpoints return clear, standardized error structures for easy client-side debugging.
@@ -112,3 +113,39 @@ To ensure smooth alignment and integration with our Flutter client:
 1. **CamelCase Response Keys**: All JSON response keys **MUST** be formatted in camelCase (e.g., `resendableAt`, `otpId`).
 2. **ISO 8601 UTC Datetime Format**: All datetime values in responses **MUST** be formatted as ISO 8601 strings with a trailing `"Z"` (Zulu time), representing UTC (e.g., `2026-07-11T11:20:44Z`).
 3. **Utility Helper**: Always use the formatting utility `format_iso8601` in `app/core/utils.py` to serialize datetimes before sending them to the client.
+
+---
+
+## 🏛️ Strict Layer Responsibilities & Isolation Rules
+
+To keep the codebase maintainable, readable, and highly testable, all developers must strictly separate Routes, Services, and CRUD layers:
+
+### 1. API Routers & Endpoints (`app/api/`)
+* **Role**: The HTTP Boundary.
+* **Responsibilities**:
+  * Define HTTP methods, routes, and path/query parameter validation.
+  * Resolve dependency injections (such as `get_db`, `get_redis`, or `get_current_user`).
+  * Translate HTTP request data (e.g. headers, body) into clean validation schemas.
+  * Formulate standard `ApiResponse` objects for the client.
+* **Strict Restraints**:
+  * ❌ **NO raw database queries** (no `db.query()`, `db.add()`, etc.).
+  * ❌ **NO complex business logic rules** (such as validating codes, calculations, etc.). Route all complex logic through the Service layer.
+
+### 2. Domain Services (`app/services/`)
+* **Role**: Core Business Logic Orchestrator.
+* **Responsibilities**:
+  * Process input data according to business rules.
+  * Coordinate multiple CRUD actions, transactional rollbacks, cache writes, or external API hits.
+* **Strict Restraints**:
+  * ❌ **NO FastAPI dependencies** (no `Depends`, `UploadFile`, `Form`, or HTTP exceptions). Services must take clean Python types (e.g. strings, models, schemas) and raise standard exceptions that the core middleware translates.
+  * ❌ **NO raw SQLAlchemy query execution**. Outsource all database selections, updates, and inserts to the CRUD layer.
+
+### 3. Repository CRUD Operations (`app/crud/`)
+* **Role**: Data Access Layer.
+* **Responsibilities**:
+  * Execute SQLAlchemy database sessions, query filters, joins, groupings, inserts, and updates.
+  * Provide a clean Python interface to fetch/write entities.
+* **Strict Restraints**:
+  * ❌ **NO business logic orchestration**.
+  * ❌ **NO HTTP concepts**.
+

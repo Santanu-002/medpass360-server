@@ -10,3 +10,13 @@ def format_iso8601(dt: datetime) -> str:
     else:
         dt = dt.astimezone(timezone.utc)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+import re
+
+def slugify(text: str) -> str:
+    """Converts a string to a URL-friendly slug."""
+    text = text.lower().strip()
+    text = re.sub(r'[^a-z0-9\s-]', '', text)
+    text = re.sub(r'[\s-]+', '-', text)
+    return text
+

@@ -45,37 +45,49 @@ def test_health_profile_flow():
         r = client.post(f"{BASE_URL}/auth/register", data=form_data)
         assert r.status_code == 200, f"Failed register: {r.text}"
         
-        # 4. Save Health Profile
-        print("4. Updating Health Profile details via PUT /auth/profile...")
         health_payload = {
-            "bloodType": "B+",
-            "emergencyContactName": "Bob Smith",
-            "emergencyContactPhone": "+15559876543",
-            "allergies": {
-                "drug": ["Penicillin"],
-                "food": ["Nuts"],
-                "environmental": ["Pollen"]
+            "profileTarget": "me",
+            "vitals": {
+                "bloodType": "B+",
+                "height": {"value": "180", "unit": "cm"},
+                "weight": {"value": "75", "unit": "kg"}
             },
-            "medicalConditions": {
-                "chronicConditions": ["Asthma"],
-                "syndromes": ["IBS"],
-                "durations": {"Asthma": "5+ years", "IBS": "1–3 years"},
-                "lifestyle": {
-                    "smoking": "Never",
-                    "alcohol": "Occasional",
-                    "physicalActivity": "Moderate"
-                },
-                "recentHistory": {
-                    "lastDoctorVisit": "2026-06-01",
-                    "visitReason": "Annual Physical",
-                    "recentSurgeries": "None"
-                },
-                "familyHistory": ["Hypertension"],
-                "additionalNotes": "Takes inhaler when needed",
-                "currentMedications": [
-                    {"name": "Albuterol", "dosage": "2 puffs", "frequency": "As needed"}
-                ]
-            }
+            "emergencyContact": {
+                "name": "Bob Smith",
+                "phone": "+15559876543"
+            },
+            "allergies": {
+                "drug": [{"uid": "", "displayName": "Penicillin"}],
+                "food": [{"uid": "", "displayName": "Nuts"}],
+                "environmental": [{"uid": "", "displayName": "Pollen"}]
+            },
+            "chronicConditions": [{"uid": "", "displayName": "Asthma"}],
+            "syndromes": [{"uid": "", "displayName": "IBS"}],
+            "durations": {"Asthma": "5+ years", "IBS": "1–3 years"},
+            "lifestyle": {
+                "smoking": "Never",
+                "alcohol": "Occasional",
+                "physicalActivity": "Moderate"
+            },
+            "recentHistory": {
+                "lastDoctorVisit": "2026-06-01",
+                "visitReason": "Annual Physical",
+                "recentSurgeries": "None"
+            },
+            "familyHistory": [{"uid": "", "displayName": "Hypertension"}],
+            "additionalNotes": "Takes inhaler when needed",
+            "currentMedications": [
+                {
+                    "name": "Albuterol",
+                    "slug": "albuterol",
+                    "dosage": "2 puffs",
+                    "frequency": "As needed",
+                    "timings": ["morning"],
+                    "instructions": "Use as needed",
+                    "foodRelation": "none",
+                    "tags": []
+                }
+            ]
         }
         
         r = client.put(f"{BASE_URL}/auth/profile", json=health_payload)
@@ -84,12 +96,17 @@ def test_health_profile_flow():
         assert update_resp["success"] is True
         
         updated_profile = update_resp["data"]["profile"]
-        assert updated_profile["bloodType"] == "B+"
-        assert updated_profile["emergencyContactName"] == "Bob Smith"
-        assert updated_profile["emergencyContactPhone"] == "+15559876543"
-        assert updated_profile["allergies"]["drug"] == ["Penicillin"]
-        assert updated_profile["medicalConditions"]["chronicConditions"] == ["Asthma"]
-        assert updated_profile["medicalConditions"]["currentMedications"][0]["name"] == "Albuterol"
+        assert updated_profile["vitals"]["bloodType"] == "B+"
+        assert updated_profile["vitals"]["height"]["value"] == "180"
+        assert updated_profile["vitals"]["height"]["unit"] == "cm"
+        assert updated_profile["vitals"]["weight"]["value"] == "75"
+        assert updated_profile["vitals"]["weight"]["unit"] == "kg"
+        assert updated_profile["emergencyContact"]["name"] == "Bob Smith"
+        assert updated_profile["emergencyContact"]["phone"] == "+15559876543"
+        assert updated_profile["allergies"]["drug"] == [{"uid": "", "displayName": "Penicillin"}]
+        assert updated_profile["chronicConditions"] == [{"uid": "", "displayName": "Asthma"}]
+        assert updated_profile["currentMedications"][0]["name"] == "Albuterol"
+        assert updated_profile["currentMedications"][0]["timings"] == ["morning"]
         print("[SUCCESS] Health Profile updated successfully. Values returned match request.")
         
         # 5. Fetch GET /auth/profile to ensure database persistence
@@ -98,13 +115,14 @@ def test_health_profile_flow():
         assert r.status_code == 200, f"Failed GET profile: {r.text}"
         get_resp = r.json()
         persisted_profile = get_resp["data"]["profile"]
-        assert persisted_profile["bloodType"] == "B+"
-        assert persisted_profile["emergencyContactName"] == "Bob Smith"
-        assert persisted_profile["allergies"]["food"] == ["Nuts"]
-        assert persisted_profile["medicalConditions"]["lifestyle"]["smoking"] == "Never"
+        assert persisted_profile["vitals"]["bloodType"] == "B+"
+        assert persisted_profile["emergencyContact"]["name"] == "Bob Smith"
+        assert persisted_profile["allergies"]["food"] == [{"uid": "", "displayName": "Nuts"}]
+        assert persisted_profile["lifestyle"]["smoking"] == "Never"
         print("[SUCCESS] Database persistence verified. All details saved correctly.")
         
         print("\n[SUCCESS] HEALTH PROFILE INTEGRATION TEST COMPLETED SUCCESSFULLY!")
 
 if __name__ == "__main__":
     test_health_profile_flow()
+
