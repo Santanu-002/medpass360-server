@@ -56,26 +56,35 @@ def test_registration_flow():
         # Set Authorization header in the client
         client.headers["Authorization"] = f"Bearer {access_token}"
         
-        # 3. Register user (Form + File upload)
-        print("3. Registering user with basic details and avatar file...")
-        
-        # Create a mock image file
+        # 3. Register user (Upload avatar via /media/upload first, then call /auth/register with json)
+        print("3. Uploading avatar first via media upload...")
         mock_file = io.BytesIO(b"fake image data")
-        
-        form_data = {
+        files = {
+            "file": ("test_avatar.jpg", mock_file, "image/jpeg")
+        }
+        form_fields = {
+            "purpose": "avatar"
+        }
+        r = client.post(
+            f"{BASE_URL}/media/upload",
+            data=form_fields,
+            files=files
+        )
+        assert r.status_code == 200, f"Failed upload: {r.text}"
+        upload_resp = r.json()
+        uploaded_avatar_url = upload_resp["data"]["url"]
+
+        print("3b. Registering user with basic details and avatar url JSON...")
+        register_payload = {
             "firstName": "John",
             "lastName": "Doe",
             "gender": "Male",
-            "dateOfBirth": "1995-10-15"
+            "dateOfBirth": "1995-10-15",
+            "avatar": uploaded_avatar_url
         }
-        files = {
-            "avatar": ("test_avatar.jpg", mock_file, "image/jpeg")
-        }
-        
         r = client.post(
             f"{BASE_URL}/auth/register",
-            data=form_data,
-            files=files
+            json=register_payload
         )
         assert r.status_code == 200, f"Failed register: {r.text}"
         resp_data = r.json()
@@ -89,7 +98,7 @@ def test_registration_flow():
         assert profile_data["dateOfBirth"] == "1995-10-15"
         
         avatar_url = profile_data["avatar"]
-        assert avatar_url == f"/uploads/avatars/{user_uid}_avatar.jpg"
+        assert avatar_url.startswith("/uploads/avatars/")
         print(f"[SUCCESS] User registered. Saved avatar url: {avatar_url}")
         
         # 4. Verify static file serving
@@ -129,7 +138,7 @@ def test_registration_flow():
         # Test 6a: Attempt registering without required phone number (should fail)
         r = email_client.post(
             f"{BASE_URL}/auth/register",
-            data={
+            json={
                 "firstName": "Jane",
                 "lastName": "Doe",
                 "gender": "Female",
@@ -143,7 +152,7 @@ def test_registration_flow():
         test_phone_email_login = f"+1555{int(time.time()) + 1}"
         r = email_client.post(
             f"{BASE_URL}/auth/register",
-            data={
+            json={
                 "firstName": "Jane",
                 "lastName": "Doe",
                 "gender": "Female",
@@ -172,7 +181,7 @@ def test_registration_flow():
 
         r = another_email_client.post(
             f"{BASE_URL}/auth/register",
-            data={
+            json={
                 "firstName": "Duplicate",
                 "lastName": "User",
                 "gender": "Male",

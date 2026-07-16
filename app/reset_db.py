@@ -6,6 +6,7 @@ from app.core.database import Base
 # Import all models to ensure they are registered on Base.metadata
 from app.models import (
     User,
+    UserSession,
     Profile,
     Vital,
     EmergencyContact,

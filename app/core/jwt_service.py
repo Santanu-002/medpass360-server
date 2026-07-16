@@ -1,5 +1,6 @@
 import jwt
 import time
+import uuid
 from datetime import datetime, timezone
 from app.core.config import settings
 from app.core.utils import format_iso8601
@@ -15,6 +16,7 @@ def _build_token(subject: str, token_type: str, ttl_seconds: int) -> dict:
         "type": token_type,
         "iat": issued_at,
         "exp": expiry,
+        "jti": str(uuid.uuid4()),
     }
 
     token = jwt.encode(

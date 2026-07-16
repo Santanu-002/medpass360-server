@@ -16,7 +16,16 @@ from app.core.config import settings
 from app.core.utils import format_iso8601
 from app.core.jwt_service import create_access_token, create_refresh_token, decode_token
 from app.api.deps import get_db, get_current_user
-from app.crud.user import get_or_create_user, update_profile, create_profile, get_user_by_identity, enable_user_biometrics
+from app.crud.user import (
+    get_or_create_user,
+    update_profile,
+    create_profile,
+    get_user_by_identity,
+    enable_user_biometrics,
+    create_or_update_user_session,
+    get_active_user_session,
+    invalidate_user_session
+)
 from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
@@ -132,6 +141,7 @@ async def create_account(
 @router.post("/verify-otp", response_model=ApiResponse)
 async def verify_otp(
     request: VerifyOtpRequest,
+    req_raw: Request,
     redis: AsyncRedisDep = None,
     db: Session = Depends(get_db)
 ):
@@ -168,7 +178,27 @@ async def verify_otp(
     access = create_access_token(subject=db_user.uid)
     refresh = create_refresh_token(subject=db_user.uid)
 
-    # 3. Construct user details response
+    # 3. Create or update session for this device
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+    device_name = req_raw.headers.get("x-device-name")
+    device_model = req_raw.headers.get("x-device-model")
+    os_version = req_raw.headers.get("x-os-version")
+    platform = req_raw.headers.get("x-platform")
+    expires_at = datetime.fromisoformat(refresh["expiresAt"].replace("Z", "+00:00"))
+
+    create_or_update_user_session(
+        db=db,
+        user_uid=db_user.uid,
+        device_id=device_id,
+        refresh_token=refresh["token"],
+        expires_at=expires_at,
+        device_name=device_name,
+        device_model=device_model,
+        os_version=os_version,
+        platform=platform,
+    )
+
+    # 4. Construct user details response
     user_resp = UserResponse.model_validate(db_user)
 
     token_data = {
@@ -192,6 +222,7 @@ async def verify_otp(
 @router.post("/refresh", response_model=ApiResponse)
 async def refresh_tokens(
     request: RefreshTokenRequest,
+    req_raw: Request,
     db: Session = Depends(get_db)
 ):
     try:
@@ -214,9 +245,53 @@ async def refresh_tokens(
             detail="Could not validate credentials/token expired"
         )
 
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+
+    # Fetch active user session matching this device and refresh token
+    session = get_active_user_session(
+        db=db,
+        user_uid=user_id,
+        device_id=device_id,
+        refresh_token=request.refresh_token
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Active session not found or token invalidated"
+        )
+
+    # Check expiration
+    if session.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        session.is_active = False
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired"
+        )
+
     # Generate new access and refresh tokens
     access = create_access_token(subject=user_id)
     refresh = create_refresh_token(subject=user_id)
+    expires_at = datetime.fromisoformat(refresh["expiresAt"].replace("Z", "+00:00"))
+
+    # Update existing session row (do NOT insert update using device-id)
+    device_name = req_raw.headers.get("x-device-name")
+    device_model = req_raw.headers.get("x-device-model")
+    os_version = req_raw.headers.get("x-os-version")
+    platform = req_raw.headers.get("x-platform")
+
+    create_or_update_user_session(
+        db=db,
+        user_uid=user_id,
+        device_id=device_id,
+        refresh_token=refresh["token"],
+        expires_at=expires_at,
+        device_name=device_name,
+        device_model=device_model,
+        os_version=os_version,
+        platform=platform,
+    )
 
     token_data = {
         "accessToken": access["token"],
@@ -235,15 +310,15 @@ async def refresh_tokens(
     )
 
 
-
-
-
 @router.post("/logout", response_model=ApiResponse)
 async def logout(
-    current_user: User = Depends(get_current_user)
+    req_raw: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    # In a real environment, we would blacklist the token in Redis.
-    # For now, return a successful response.
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+    invalidate_user_session(db=db, user_uid=current_user.uid, device_id=device_id)
+
     return ApiResponse(
         success=True,
         message="Logout successful."

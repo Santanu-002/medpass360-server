@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import date, datetime
 from app.models import (
     User,
+    UserSession,
     Profile,
     Vital,
     EmergencyContact,
@@ -13,7 +15,6 @@ from app.models import (
     AdditionalDetail,
 )
 from app.schemas.user import ProfileUpdate
-from datetime import date
 
 
 def get_user_by_id(db: Session, user_uid: str) -> Optional[User]:
@@ -240,5 +241,91 @@ def enable_user_biometrics(db: Session, user: User) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def create_or_update_user_session(
+    db: Session,
+    user_uid: str,
+    device_id: str,
+    refresh_token: str,
+    expires_at: datetime,
+    device_name: Optional[str] = None,
+    device_model: Optional[str] = None,
+    os_version: Optional[str] = None,
+    platform: Optional[str] = None,
+) -> UserSession:
+    """Creates or updates a session for a user and a specific device ID."""
+    # Find user first
+    user = db.query(User).filter(User.uid == user_uid).first()
+    if not user:
+        raise ValueError(f"User with UID {user_uid} not found")
+
+    session = db.query(UserSession).filter(
+        UserSession.user_id == user.id,
+        UserSession.device_id == device_id
+    ).first()
+
+    if session:
+        session.refresh_token = refresh_token
+        session.expires_at = expires_at
+        session.is_active = True
+        if device_name:
+            session.device_name = device_name
+        if device_model:
+            session.device_model = device_model
+        if os_version:
+            session.os_version = os_version
+        if platform:
+            session.platform = platform
+    else:
+        session = UserSession(
+            user_id=user.id,
+            device_id=device_id,
+            device_name=device_name,
+            device_model=device_model,
+            os_version=os_version,
+            platform=platform,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            is_active=True
+        )
+        db.add(session)
+
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def get_active_user_session(
+    db: Session,
+    user_uid: str,
+    device_id: str,
+    refresh_token: str
+) -> Optional[UserSession]:
+    """Retrieves an active session matching user UID, device ID and refresh token."""
+    return db.query(UserSession).join(User).filter(
+        User.uid == user_uid,
+        UserSession.device_id == device_id,
+        UserSession.refresh_token == refresh_token,
+        UserSession.is_active == True
+    ).first()
+
+
+def invalidate_user_session(
+    db: Session,
+    user_uid: str,
+    device_id: str
+) -> Optional[UserSession]:
+    """Marks a user's session as inactive for a specific device."""
+    session = db.query(UserSession).join(User).filter(
+        User.uid == user_uid,
+        UserSession.device_id == device_id
+    ).first()
+
+    if session:
+        session.is_active = False
+        db.commit()
+        db.refresh(session)
+    return session
 
 
