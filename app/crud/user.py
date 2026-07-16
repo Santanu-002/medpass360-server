@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from app.models import (
     User,
     UserSession,
+    UserDeviceBiometric,
     Profile,
     Vital,
     EmergencyContact,
@@ -316,13 +317,30 @@ def get_user_by_identity(db: Session, identity: str) -> Optional[User]:
     return None
 
 
-def enable_user_biometrics(db: Session, user: User) -> User:
-    """Enables biometric login flags on User and persists it."""
-    user.has_biometrics = True
-    db.add(user)
+def enable_user_biometrics(db: Session, user: User, device_id: str) -> UserDeviceBiometric:
+    """Enables biometric login flags on User for a specific device and persists it."""
+    from sqlalchemy.sql import func
+    
+    biometric = db.query(UserDeviceBiometric).filter(
+        UserDeviceBiometric.user_id == user.uid,
+        UserDeviceBiometric.device_id == device_id
+    ).first()
+
+    if biometric:
+        biometric.is_enabled = True
+        biometric.enabled_at = func.now()
+        biometric.disabled_at = None
+    else:
+        biometric = UserDeviceBiometric(
+            user_id=user.uid,
+            device_id=device_id,
+            is_enabled=True
+        )
+        db.add(biometric)
+
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(biometric)
+    return biometric
 
 
 def create_or_update_user_session(

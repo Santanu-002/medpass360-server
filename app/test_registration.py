@@ -49,8 +49,8 @@ def test_registration_flow():
         access_token = token_data["accessToken"]
         user_uid = user_data["uid"]
         
-        # Check that profile is None for new users
-        assert user_data["profile"] is None, "Profile should be null/None for a new user"
+        # Check that profiles list is empty for new users
+        assert len(user_data["profiles"]) == 0, "Profiles list should be empty for a new user"
         print("[SUCCESS] OTP verified. User created with no profile (as expected).")
         
         # Set Authorization header in the client
@@ -90,7 +90,7 @@ def test_registration_flow():
         resp_data = r.json()
         assert resp_data["success"] is True
         
-        profile_data = resp_data["data"]["profile"]
+        profile_data = next(p for p in resp_data["data"]["profiles"] if p["relation"] == "self")
         assert profile_data is not None
         assert profile_data["firstName"] == "John"
         assert profile_data["lastName"] == "Doe"
@@ -118,7 +118,7 @@ def test_registration_flow():
         assert r.status_code == 200, f"Failed get profile: {r.text}"
         resp_data = r.json()
         assert resp_data["success"] is True
-        persisted_profile = resp_data["data"]["profile"]
+        persisted_profile = next(p for p in resp_data["data"]["profiles"] if p["relation"] == "self")
         assert persisted_profile["avatar"] == avatar_url
         print("[SUCCESS] Profile retrieved and verified. All details persisted.")
         
@@ -161,7 +161,7 @@ def test_registration_flow():
             }
         )
         assert r.status_code == 200, f"Failed email-login registration: {r.text}"
-        profile = r.json()["data"]["profile"]
+        profile = next(p for p in r.json()["data"]["profiles"] if p["relation"] == "self")
         assert profile["phoneNumber"] == test_phone_email_login
         assert profile["email"] == test_email
         print("[SUCCESS] Registered successfully with phone number.")

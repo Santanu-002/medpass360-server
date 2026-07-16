@@ -324,15 +324,29 @@ async def logout(
 @router.get("/check-exists", response_model=ApiResponse)
 async def check_exists(
     identity: str,
+    req_raw: Request,
     db: Session = Depends(get_db)
 ):
     user = get_user_by_identity(db, identity)
+    
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+    has_device_biometrics = False
+    
+    if user:
+        from app.models.user_biometric import UserDeviceBiometric
+        db_biometric = db.query(UserDeviceBiometric).filter(
+            UserDeviceBiometric.user_id == user.uid,
+            UserDeviceBiometric.device_id == device_id,
+            UserDeviceBiometric.is_enabled == True
+        ).first()
+        has_device_biometrics = db_biometric is not None
+
     return ApiResponse(
         success=True,
         message="Checked identity existence successfully.",
         data={
             "exists": user is not None,
-            "hasBiometrics": user.has_biometrics if user else False
+            "hasBiometrics": has_device_biometrics
         }
     )
 
@@ -343,10 +357,12 @@ class BiometricLoginRequest(BaseModel):
 
 @router.post("/enable-biometrics", response_model=ApiResponse)
 async def enable_biometrics(
+    req_raw: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    enable_user_biometrics(db, current_user)
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+    enable_user_biometrics(db, current_user, device_id)
     return ApiResponse(
         success=True,
         message="Biometrics enabled successfully."
@@ -450,6 +466,7 @@ async def login_otp(
 @router.post("/login", response_model=ApiResponse)
 async def login(
     request: BiometricLoginRequest,
+    req_raw: Request,
     db: Session = Depends(get_db)
 ):
     db_user = get_user_by_identity(db, request.identity)
@@ -459,10 +476,18 @@ async def login(
             detail="User not found."
         )
 
-    if not db_user.has_biometrics:
+    device_id = req_raw.headers.get("x-device-id", "UnknownDevice")
+    from app.models.user_biometric import UserDeviceBiometric
+    biometric = db.query(UserDeviceBiometric).filter(
+        UserDeviceBiometric.user_id == db_user.uid,
+        UserDeviceBiometric.device_id == device_id,
+        UserDeviceBiometric.is_enabled == True
+    ).first()
+
+    if not biometric:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Biometric authentication is not enabled for this user."
+            detail="Biometric authentication is not enabled for this device."
         )
 
     access = create_access_token(subject=db_user.uid)

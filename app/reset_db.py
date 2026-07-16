@@ -7,6 +7,7 @@ from app.core.database import Base
 from app.models import (
     User,
     UserSession,
+    UserDeviceBiometric,
     Profile,
     Vital,
     EmergencyContact,
@@ -43,9 +44,9 @@ def reset_database():
     with engine.connect() as conn:
         conn.execute(text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);'))
         conn.execute(text('DELETE FROM alembic_version;'))
-        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('677485fc5d96');"))
+        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('30f7ae779042');"))
         conn.commit()
-    print("Alembic version set to head ('677485fc5d96') successfully!")
+    print("Alembic version set to head ('30f7ae779042') successfully!")
 
     print("Seeding default medical options...")
     from app.core.seeding import seed_default_medical_options
