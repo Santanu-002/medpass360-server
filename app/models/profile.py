@@ -78,9 +78,9 @@ class Profile(Base):
 
     @property
     def allergies(self) -> Optional[dict]:
-        drug = [{"uid": str(a.id), "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "drug"]
-        food = [{"uid": str(a.id), "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "food"]
-        env = [{"uid": str(a.id), "displayName": a.name} for a in self.allergies_rel if a.allergy_type == "environmental"]
+        drug = [{"uid": str(a.id), "displayName": a.display_name} for a in self.allergies_rel if a.allergy_type == "drug"]
+        food = [{"uid": str(a.id), "displayName": a.display_name} for a in self.allergies_rel if a.allergy_type == "food"]
+        env = [{"uid": str(a.id), "displayName": a.display_name} for a in self.allergies_rel if a.allergy_type == "environmental"]
         return {
             "drug": drug,
             "food": food,
@@ -89,15 +89,15 @@ class Profile(Base):
 
     @property
     def chronic_conditions(self) -> List[dict]:
-        return [{"uid": str(c.id), "displayName": c.name} for c in self.conditions_rel if c.condition_type == "chronic"]
+        return [{"uid": str(c.id), "displayName": c.display_name} for c in self.conditions_rel if c.condition_type == "chronic"]
 
     @property
     def syndromes(self) -> List[dict]:
-        return [{"uid": str(c.id), "displayName": c.name} for c in self.conditions_rel if c.condition_type == "syndrome"]
+        return [{"uid": str(c.id), "displayName": c.display_name} for c in self.conditions_rel if c.condition_type == "syndrome"]
 
     @property
     def durations(self) -> dict:
-        return {c.name: c.duration for c in self.conditions_rel if c.duration}
+        return {c.display_name: c.duration for c in self.conditions_rel if c.duration}
 
     @property
     def lifestyle(self) -> Optional[dict]:
@@ -121,7 +121,7 @@ class Profile(Base):
 
     @property
     def family_history(self) -> List[dict]:
-        return [{"uid": str(f.id), "displayName": f.name} for f in self.family_history_rel]
+        return [{"uid": str(f.id), "displayName": f.display_name} for f in self.family_history_rel]
 
     @property
     def additional_notes(self) -> str:
@@ -167,9 +167,16 @@ class EmergencyContact(Base):
 class Allergy(Base):
     __tablename__ = "allergies"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    uid = Column(String(36), unique=True, nullable=False, index=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=True, index=True)
     allergy_type = Column(String(50), nullable=False)  # 'drug', 'food', 'environmental'
-    name = Column(String(100), nullable=False)
+    slug = Column(String(255), nullable=False, index=True)
+    display_name = Column(String(255), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    status = Column(String(20), nullable=False, default="active")
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="allergies_rel")
 
@@ -177,10 +184,17 @@ class Allergy(Base):
 class MedicalCondition(Base):
     __tablename__ = "medical_conditions"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    uid = Column(String(36), unique=True, nullable=False, index=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=True, index=True)
     condition_type = Column(String(50), nullable=False)  # 'chronic', 'syndrome'
-    name = Column(String(100), nullable=False)
+    slug = Column(String(255), nullable=False, index=True)
+    display_name = Column(String(255), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    status = Column(String(20), nullable=False, default="active")
     duration = Column(String(50), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="conditions_rel")
 
@@ -221,8 +235,15 @@ class Lifestyle(Base):
 class FamilyHistory(Base):
     __tablename__ = "family_histories"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(100), nullable=False)
+    uid = Column(String(36), unique=True, nullable=False, index=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=True, index=True)
+    slug = Column(String(255), nullable=False, index=True)
+    display_name = Column(String(255), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    status = Column(String(20), nullable=False, default="active")
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="family_history_rel")
 

@@ -203,29 +203,57 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         db.query(Allergy).filter(Allergy.profile_id == target_profile.id).delete()
         allergies_dict = update_data["allergies"]
         if allergies_dict and isinstance(allergies_dict, dict):
+            from app.core.utils import slugify
             for a_type in ["drug", "food", "environmental"]:
                 items = allergies_dict.get(a_type, [])
                 if items and isinstance(items, list):
                     for item in items:
                         name = item["displayName"]
-                        db.add(Allergy(profile_id=target_profile.id, allergy_type=a_type, name=name))
+                        slug = slugify(name)
+                        db.add(Allergy(
+                            profile_id=target_profile.id,
+                            allergy_type=a_type,
+                            slug=slug,
+                            display_name=name,
+                            created_by=user_uid,
+                            status="active"
+                        ))
 
     # 5. Update Conditions (Chronic, Syndromes, Durations)
     if any(k in update_data for k in ["chronic_conditions", "syndromes", "durations"]):
         db.query(MedicalCondition).filter(MedicalCondition.profile_id == target_profile.id).delete()
         durations = update_data.get("durations") or {}
+        from app.core.utils import slugify
         
         chronic = update_data.get("chronic_conditions") or []
         for item in chronic:
             name = item["displayName"]
+            slug = slugify(name)
             dur = durations.get(name)
-            db.add(MedicalCondition(profile_id=target_profile.id, condition_type="chronic", name=name, duration=dur))
+            db.add(MedicalCondition(
+                profile_id=target_profile.id,
+                condition_type="chronic",
+                slug=slug,
+                display_name=name,
+                created_by=user_uid,
+                status="active",
+                duration=dur
+            ))
             
         syndromes = update_data.get("syndromes") or []
         for item in syndromes:
             name = item["displayName"]
+            slug = slugify(name)
             dur = durations.get(name)
-            db.add(MedicalCondition(profile_id=target_profile.id, condition_type="syndrome", name=name, duration=dur))
+            db.add(MedicalCondition(
+                profile_id=target_profile.id,
+                condition_type="syndrome",
+                slug=slug,
+                display_name=name,
+                created_by=user_uid,
+                status="active",
+                duration=dur
+            ))
 
     # 6. Update Lifestyle
     if "lifestyle" in update_data and update_data["lifestyle"]:
@@ -261,8 +289,17 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if "family_history" in update_data:
         db.query(FamilyHistory).filter(FamilyHistory.profile_id == target_profile.id).delete()
         fam = update_data["family_history"] or []
+        from app.core.utils import slugify
         for item in fam:
-            db.add(FamilyHistory(profile_id=target_profile.id, name=item["displayName"]))
+            name = item["displayName"]
+            slug = slugify(name)
+            db.add(FamilyHistory(
+                profile_id=target_profile.id,
+                slug=slug,
+                display_name=name,
+                created_by=user_uid,
+                status="active"
+            ))
 
     # 9. Update Additional Notes
     if "additional_notes" in update_data:

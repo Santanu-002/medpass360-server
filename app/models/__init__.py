@@ -13,7 +13,6 @@ from app.models.profile import (
     FamilyHistory,
     AdditionalDetail,
 )
-from app.models.medical_option import MedicalOption
 
 __all__ = [
     "Base",
@@ -29,5 +28,4 @@ __all__ = [
     "Lifestyle",
     "FamilyHistory",
     "AdditionalDetail",
-    "MedicalOption",
 ]

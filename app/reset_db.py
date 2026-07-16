@@ -17,7 +17,6 @@ from app.models import (
     Lifestyle,
     FamilyHistory,
     AdditionalDetail,
-    MedicalOption,
 )
 
 def reset_database():
@@ -44,9 +43,9 @@ def reset_database():
     with engine.connect() as conn:
         conn.execute(text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);'))
         conn.execute(text('DELETE FROM alembic_version;'))
-        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('30f7ae779042');"))
+        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('f136381ceb5f');"))
         conn.commit()
-    print("Alembic version set to head ('30f7ae779042') successfully!")
+    print("Alembic version set to head ('f136381ceb5f') successfully!")
 
     print("Seeding default medical options...")
     from app.core.seeding import seed_default_medical_options

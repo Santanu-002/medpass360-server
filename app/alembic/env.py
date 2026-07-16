@@ -11,10 +11,7 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.core.config import settings
-from app.core.database import Base
-from app.models.user import User
-from app.models.profile import Profile
-from app.models.medical_option import MedicalOption
+from app.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
