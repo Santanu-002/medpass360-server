@@ -74,19 +74,21 @@ class ProfileBase(CamelModel):
     gender: Optional[Gender] = None
     avatar: Optional[str] = Field(None, max_length=500)
     
-    profile_target: Optional[str] = Field(None, max_length=50)
-    care_person: Optional[Dict[str, Any]] = None
-    
     created_by: Optional[str] = Field(None, max_length=36)
     relation: Optional[str] = Field("self", max_length=50)
     is_verified: bool = False
 
 
-class ProfileCreate(ProfileBase):
+class ProfileRequest(ProfileBase):
+    profile_target: Optional[str] = Field(None, max_length=50)
+    care_person: Optional[Dict[str, Any]] = None
+
+
+class ProfileCreate(ProfileRequest):
     health_profile: Optional[HealthProfileResponse] = None
 
 
-class ProfileUpdate(ProfileBase):
+class ProfileUpdate(ProfileRequest):
     health_profile: Optional[HealthProfileResponse] = None
 
 
