@@ -79,16 +79,11 @@ class ProfileBase(CamelModel):
     is_verified: bool = False
 
 
-class ProfileRequest(ProfileBase):
-    profile_target: Optional[str] = Field(None, max_length=50)
-    care_person: Optional[Dict[str, Any]] = None
-
-
-class ProfileCreate(ProfileRequest):
+class ProfileCreate(ProfileBase):
     health_profile: Optional[HealthProfileResponse] = None
 
 
-class ProfileUpdate(ProfileRequest):
+class ProfileUpdate(ProfileBase):
     health_profile: Optional[HealthProfileResponse] = None
 
 
@@ -136,6 +131,3 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
-class SaveHealthProfileRequest(CamelModel):
-    profile_target: str = Field(..., alias="profileTarget")
-    profile: ProfileUpdate = Field(...)

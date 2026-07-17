@@ -93,7 +93,7 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
 
     # Determine which profile we are actually updating
     target_profile = db_profile
-    if profile_update.profile_target == 'other':
+    if profile_update.relation != 'self':
         identity = profile_update.phone_number or profile_update.email
         if identity:
             care_user = get_user_by_identity(db, identity)
