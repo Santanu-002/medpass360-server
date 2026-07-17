@@ -126,8 +126,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                     gender=care.get("gender"),
                     date_of_birth=dob_val,
                     avatar=care.get("avatar"),
-                    phone_number=identity if "@" not in identity else None,
-                    email=identity if "@" in identity else None,
+                    phone_number=care.get("phoneNumber") or (identity if "@" not in identity else None),
+                    email=care.get("email") or (identity if "@" in identity else None),
                     created_by=user_uid,
                     relation=care.get("relation", "other"),
                     is_verified=False
@@ -151,6 +151,10 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                         pass
                 if care.get("avatar"):
                     care_profile.avatar = care.get("avatar")
+                if care.get("email"):
+                    care_profile.email = care.get("email")
+                if care.get("phoneNumber"):
+                    care_profile.phone_number = care.get("phoneNumber")
                 care_profile.created_by = user_uid
                 care_profile.relation = care.get("relation", care_profile.relation or "other")
                 db.add(care_profile)
@@ -184,8 +188,10 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if has_health_field("vitals") and get_health_field("vitals"):
         vitals_data = get_health_field("vitals")
         if not target_profile.vitals_rel:
-            target_profile.vitals_rel = Vital(profile_id=target_profile.id)
+            target_profile.vitals_rel = Vital(profile_id=target_profile.id, created_by=user_uid)
             db.add(target_profile.vitals_rel)
+        else:
+            target_profile.vitals_rel.updated_at = func.now()
         if "blood_type" in vitals_data:
             target_profile.vitals_rel.blood_type = vitals_data["blood_type"]
         if "height" in vitals_data and vitals_data["height"]:
@@ -201,8 +207,10 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if has_health_field("emergency_contact") and get_health_field("emergency_contact"):
         contact_data = get_health_field("emergency_contact")
         if not target_profile.emergency_contact_rel:
-            target_profile.emergency_contact_rel = EmergencyContact(profile_id=target_profile.id)
+            target_profile.emergency_contact_rel = EmergencyContact(profile_id=target_profile.id, created_by=user_uid)
             db.add(target_profile.emergency_contact_rel)
+        else:
+            target_profile.emergency_contact_rel.updated_at = func.now()
         if "name" in contact_data:
             target_profile.emergency_contact_rel.name = contact_data["name"]
         if "phone" in contact_data:
@@ -269,8 +277,10 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if has_health_field("lifestyle") and get_health_field("lifestyle"):
         ls = get_health_field("lifestyle")
         if not target_profile.lifestyle_rel:
-            target_profile.lifestyle_rel = Lifestyle(profile_id=target_profile.id)
+            target_profile.lifestyle_rel = Lifestyle(profile_id=target_profile.id, created_by=user_uid)
             db.add(target_profile.lifestyle_rel)
+        else:
+            target_profile.lifestyle_rel.updated_at = func.now()
         if "smoking" in ls:
             target_profile.lifestyle_rel.smoking = ls["smoking"]
         if "alcohol" in ls:
@@ -282,8 +292,10 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if has_health_field("recent_history") and get_health_field("recent_history"):
         rh = get_health_field("recent_history")
         if not target_profile.lifestyle_rel:
-            target_profile.lifestyle_rel = Lifestyle(profile_id=target_profile.id)
+            target_profile.lifestyle_rel = Lifestyle(profile_id=target_profile.id, created_by=user_uid)
             db.add(target_profile.lifestyle_rel)
+        else:
+            target_profile.lifestyle_rel.updated_at = func.now()
         if "last_doctor_visit" in rh and rh["last_doctor_visit"]:
             try:
                 visit_date = date.fromisoformat(rh["last_doctor_visit"])
@@ -316,8 +328,10 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         notes = get_health_field("additional_notes")
         if notes is not None:
             if not target_profile.additional_detail_rel:
-                target_profile.additional_detail_rel = AdditionalDetail(profile_id=target_profile.id)
+                target_profile.additional_detail_rel = AdditionalDetail(profile_id=target_profile.id, created_by=user_uid)
                 db.add(target_profile.additional_detail_rel)
+            else:
+                target_profile.additional_detail_rel.updated_at = func.now()
             target_profile.additional_detail_rel.additional_notes = notes
 
     # 10. Update Medications
@@ -334,8 +348,15 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                 timings=m.get("timings"),
                 instructions=m.get("instructions"),
                 food_relation=m.get("foodRelation"),
-                tags=m.get("tags")
+                tags=m.get("tags"),
+                created_by=user_uid
             ))
+
+    if not target_profile.email and not target_profile.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one identity (email or phone number) must be present."
+        )
 
     db.commit()
     db.refresh(target_profile)

@@ -14,7 +14,7 @@ class Profile(Base):
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
-    phone_number = Column(String(50), nullable=True)
+    phone_number = Column(String(50), unique=True, nullable=True, index=True)
     date_of_birth = Column(Date, nullable=True)
     gender = Column(String(50), nullable=True)
     avatar = Column(String(500), nullable=True)
@@ -167,6 +167,10 @@ class Vital(Base):
     blood_type = Column(String(10), nullable=True)
     height = Column(String(50), nullable=True)
     weight = Column(String(50), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="vitals_rel")
 
@@ -177,6 +181,10 @@ class EmergencyContact(Base):
     profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     name = Column(String(150), nullable=True)
     phone = Column(String(20), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="emergency_contact_rel")
 
@@ -230,6 +238,10 @@ class Medication(Base):
     instructions = Column(String(255), nullable=True)
     food_relation = Column(String(100), nullable=True)
     tags = Column(JSON, nullable=True)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="medications_rel")
 
@@ -245,6 +257,10 @@ class Lifestyle(Base):
     last_doctor_visit = Column(Date, nullable=True)
     visit_reason = Column(String(255), nullable=True)
     recent_surgeries = Column(String(255), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="lifestyle_rel")
 
@@ -272,5 +288,9 @@ class AdditionalDetail(Base):
     insurance_provider = Column(String(150), nullable=True)
     primary_physician = Column(String(150), nullable=True)
     additional_notes = Column(String(1000), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     profile = relationship("Profile", back_populates="additional_detail_rel")
