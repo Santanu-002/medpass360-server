@@ -8,10 +8,11 @@ from app.models.profile import (
     EmergencyContact,
     Allergy,
     MedicalCondition,
+    FamilyHistory,
     Medication,
     Lifestyle,
-    FamilyHistory,
     AdditionalDetail,
+    ProfileMedicalSelection,
 )
 
 __all__ = [
@@ -24,8 +25,9 @@ __all__ = [
     "EmergencyContact",
     "Allergy",
     "MedicalCondition",
+    "FamilyHistory",
     "Medication",
     "Lifestyle",
-    "FamilyHistory",
     "AdditionalDetail",
+    "ProfileMedicalSelection",
 ]
