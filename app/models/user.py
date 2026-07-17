@@ -34,42 +34,7 @@ class User(Base):
                 seen_uids.add(p.uid)
         return res
 
-    @property
-    def is_profile_completed(self) -> bool:
-        return self.profile is not None
 
-    @property
-    def is_health_profile_completed(self) -> bool:
-        if not self.profile:
-            return False
-        # Check own profile
-        if (
-            self.profile.vitals_rel is not None or 
-            self.profile.emergency_contact_rel is not None or
-            len(self.profile.allergies_rel) > 0 or
-            len(self.profile.conditions_rel) > 0 or
-            len(self.profile.medications_rel) > 0 or
-            self.profile.lifestyle_rel is not None or
-            len(self.profile.family_history_rel) > 0 or
-            self.profile.additional_detail_rel is not None
-        ):
-            return True
-
-        # Check other profiles created by this user
-        for p in self.created_profiles:
-            if p.uid != self.profile.uid:
-                if (
-                    p.vitals_rel is not None or
-                    p.emergency_contact_rel is not None or
-                    len(p.allergies_rel) > 0 or
-                    len(p.conditions_rel) > 0 or
-                    len(p.medications_rel) > 0 or
-                    p.lifestyle_rel is not None or
-                    len(p.family_history_rel) > 0 or
-                    p.additional_detail_rel is not None
-                ):
-                    return True
-        return False
 
     @property
     def is_biometric_setup_completed(self) -> bool:
