@@ -355,6 +355,14 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                 created_by=user_uid
             ))
 
+    if target_profile.relation == "self":
+        parent_user = db.query(User).filter(User.uid == user_uid).first()
+        if parent_user:
+            if not target_profile.email and parent_user.email:
+                target_profile.email = parent_user.email
+            if not target_profile.phone_number and parent_user.phone_number:
+                target_profile.phone_number = parent_user.phone_number
+
     if not target_profile.email and not target_profile.phone_number:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
