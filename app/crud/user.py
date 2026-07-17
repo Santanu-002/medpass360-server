@@ -10,12 +10,14 @@ from app.models import (
     Profile,
     Vital,
     EmergencyContact,
+    MedicalOption,  # Keep this in case other functions use it, but add others:
     Allergy,
     MedicalCondition,
+    FamilyHistory,
     Medication,
     Lifestyle,
-    FamilyHistory,
     AdditionalDetail,
+    ProfileMedicalSelection,
 )
 from app.schemas.user import ProfileUpdate
 
@@ -225,58 +227,121 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
 
     # 4. Update Allergies
     if has_health_field("allergies"):
-        db.query(Allergy).filter(Allergy.profile_id == target_profile.id).delete()
+        db.query(ProfileMedicalSelection).filter(
+            ProfileMedicalSelection.profile_id == target_profile.id,
+            ProfileMedicalSelection.category.in_(["drug_allergy", "food_allergy", "environmental_allergy"])
+        ).delete(synchronize_session=False)
         allergies_dict = get_health_field("allergies")
         if allergies_dict and isinstance(allergies_dict, dict):
             from app.core.utils import slugify
             for a_type in ["drug", "food", "environmental"]:
                 items = allergies_dict.get(a_type, [])
                 if items and isinstance(items, list):
+                    category_name = f"{a_type}_allergy"
                     for item in items:
                         name = item["displayName"]
+                        uid = item.get("uid")
                         slug = slugify(name)
-                        db.add(Allergy(
+                        
+                        catalog_item = None
+                        if uid:
+                            catalog_item = db.query(Allergy).filter(Allergy.uid == uid).first()
+                        
+                        if not catalog_item:
+                            catalog_item = db.query(Allergy).filter(
+                                Allergy.slug == slug,
+                                Allergy.allergy_type == a_type
+                            ).first()
+                            
+                        if not catalog_item:
+                            catalog_item = Allergy(
+                                allergy_type=a_type,
+                                slug=slug,
+                                display_name=name,
+                                created_by=user_uid,
+                                status="active"
+                            )
+                            db.add(catalog_item)
+                            db.flush()
+                            
+                        db.add(ProfileMedicalSelection(
                             profile_id=target_profile.id,
-                            allergy_type=a_type,
-                            slug=slug,
-                            display_name=name,
-                            created_by=user_uid,
-                            status="active"
+                            item_uid=catalog_item.uid,
+                            category=category_name
                         ))
 
     # 5. Update Conditions (Chronic, Syndromes, Durations)
     if any(has_health_field(k) for k in ["chronic_conditions", "syndromes", "durations"]):
-        db.query(MedicalCondition).filter(MedicalCondition.profile_id == target_profile.id).delete()
+        db.query(ProfileMedicalSelection).filter(
+            ProfileMedicalSelection.profile_id == target_profile.id,
+            ProfileMedicalSelection.category.in_(["chronic_condition", "syndrome"])
+        ).delete(synchronize_session=False)
         durations = get_health_field("durations") or {}
         from app.core.utils import slugify
         
         chronic = get_health_field("chronic_conditions") or []
         for item in chronic:
             name = item["displayName"]
+            uid = item.get("uid")
             slug = slugify(name)
             dur = durations.get(name)
-            db.add(MedicalCondition(
+            
+            catalog_item = None
+            if uid:
+                catalog_item = db.query(MedicalCondition).filter(MedicalCondition.uid == uid).first()
+            if not catalog_item:
+                catalog_item = db.query(MedicalCondition).filter(
+                    MedicalCondition.slug == slug,
+                    MedicalCondition.condition_type == "chronic"
+                ).first()
+            if not catalog_item:
+                catalog_item = MedicalCondition(
+                    condition_type="chronic",
+                    slug=slug,
+                    display_name=name,
+                    created_by=user_uid,
+                    status="active"
+                )
+                db.add(catalog_item)
+                db.flush()
+                
+            db.add(ProfileMedicalSelection(
                 profile_id=target_profile.id,
-                condition_type="chronic",
-                slug=slug,
-                display_name=name,
-                created_by=user_uid,
-                status="active",
+                item_uid=catalog_item.uid,
+                category="chronic_condition",
                 duration=dur
             ))
             
         syndromes = get_health_field("syndromes") or []
         for item in syndromes:
             name = item["displayName"]
+            uid = item.get("uid")
             slug = slugify(name)
             dur = durations.get(name)
-            db.add(MedicalCondition(
+            
+            catalog_item = None
+            if uid:
+                catalog_item = db.query(MedicalCondition).filter(MedicalCondition.uid == uid).first()
+            if not catalog_item:
+                catalog_item = db.query(MedicalCondition).filter(
+                    MedicalCondition.slug == slug,
+                    MedicalCondition.condition_type == "syndrome"
+                ).first()
+            if not catalog_item:
+                catalog_item = MedicalCondition(
+                    condition_type="syndrome",
+                    slug=slug,
+                    display_name=name,
+                    created_by=user_uid,
+                    status="active"
+                )
+                db.add(catalog_item)
+                db.flush()
+                
+            db.add(ProfileMedicalSelection(
                 profile_id=target_profile.id,
-                condition_type="syndrome",
-                slug=slug,
-                display_name=name,
-                created_by=user_uid,
-                status="active",
+                item_uid=catalog_item.uid,
+                category="syndrome",
                 duration=dur
             ))
 
@@ -316,18 +381,38 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
 
     # 8. Update Family History
     if has_health_field("family_history"):
-        db.query(FamilyHistory).filter(FamilyHistory.profile_id == target_profile.id).delete()
+        db.query(ProfileMedicalSelection).filter(
+            ProfileMedicalSelection.profile_id == target_profile.id,
+            ProfileMedicalSelection.category == "family_history"
+        ).delete(synchronize_session=False)
         fam = get_health_field("family_history") or []
         from app.core.utils import slugify
         for item in fam:
             name = item["displayName"]
+            uid = item.get("uid")
             slug = slugify(name)
-            db.add(FamilyHistory(
+            
+            catalog_item = None
+            if uid:
+                catalog_item = db.query(FamilyHistory).filter(FamilyHistory.uid == uid).first()
+            if not catalog_item:
+                catalog_item = db.query(FamilyHistory).filter(
+                    FamilyHistory.slug == slug
+                ).first()
+            if not catalog_item:
+                catalog_item = FamilyHistory(
+                    slug=slug,
+                    display_name=name,
+                    created_by=user_uid,
+                    status="active"
+                )
+                db.add(catalog_item)
+                db.flush()
+                
+            db.add(ProfileMedicalSelection(
                 profile_id=target_profile.id,
-                slug=slug,
-                display_name=name,
-                created_by=user_uid,
-                status="active"
+                item_uid=catalog_item.uid,
+                category="family_history"
             ))
 
     # 9. Update Additional Notes
