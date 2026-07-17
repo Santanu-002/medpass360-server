@@ -12,7 +12,7 @@ router = APIRouter()
 def map_allergy_option(x) -> MedicalOptionResponse:
     return MedicalOptionResponse(
         uid=x.uid,
-        category=f"{x.allergy_type}_allergy",
+        category=x.category,
         slug=x.slug,
         display_name=x.display_name,
         created_by=x.created_by,
@@ -20,10 +20,9 @@ def map_allergy_option(x) -> MedicalOptionResponse:
     )
 
 def map_condition_option(x) -> MedicalOptionResponse:
-    category = "chronic_condition" if x.condition_type == "chronic" else "syndrome"
     return MedicalOptionResponse(
         uid=x.uid,
-        category=category,
+        category=x.category,
         slug=x.slug,
         display_name=x.display_name,
         created_by=x.created_by,
@@ -33,7 +32,7 @@ def map_condition_option(x) -> MedicalOptionResponse:
 def map_family_history_option(x) -> MedicalOptionResponse:
     return MedicalOptionResponse(
         uid=x.uid,
-        category="family_history",
+        category=x.category,
         slug=x.slug,
         display_name=x.display_name,
         created_by=x.created_by,

@@ -13,10 +13,11 @@ from app.models import (
     EmergencyContact,
     Allergy,
     MedicalCondition,
+    FamilyHistory,
     Medication,
     Lifestyle,
-    FamilyHistory,
     AdditionalDetail,
+    ProfileMedicalSelection,
 )
 
 def reset_database():
@@ -38,14 +39,14 @@ def reset_database():
     print("Creating all tables from updated SQLAlchemy models...")
     Base.metadata.create_all(bind=engine)
     print("Database schema created successfully!")
-
+ 
     print("Registering database schema with Alembic version tracking...")
     with engine.connect() as conn:
         conn.execute(text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);'))
         conn.execute(text('DELETE FROM alembic_version;'))
-        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('f136381ceb5f');"))
+        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('bd1e62c8968b');"))
         conn.commit()
-    print("Alembic version set to head ('f136381ceb5f') successfully!")
+    print("Alembic version set to head ('bd1e62c8968b') successfully!")
 
     print("Seeding default medical options...")
     from app.core.seeding import seed_default_medical_options
