@@ -25,10 +25,12 @@ class User(Base):
     def profiles(self):
         res = []
         seen_uids = set()
+        # Own profile first (relation=self)
         if self.profile:
             res.append(self.profile)
             seen_uids.add(self.profile.uid)
-        for p in self.created_profiles:
+        # Then care profiles ordered by created_at ascending
+        for p in sorted(self.created_profiles, key=lambda x: x.created_at or 0):
             if p.uid not in seen_uids:
                 res.append(p)
                 seen_uids.add(p.uid)
