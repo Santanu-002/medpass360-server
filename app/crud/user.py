@@ -93,74 +93,41 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
 
     # Determine which profile we are actually updating
     target_profile = db_profile
-    if profile_update.profile_target == 'other' and profile_update.care_person:
-        care = profile_update.care_person
-        identity = care.get("identity")
+    if profile_update.profile_target == 'other':
+        identity = profile_update.phone_number or profile_update.email
         if identity:
             care_user = get_user_by_identity(db, identity)
             if care_user:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A user with this phone number or email already exists."
+                care_profile = db.query(Profile).filter(Profile.user_id == care_user.uid).first()
+                if not care_profile or care_profile.created_by != user_uid:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="A user with this phone number or email already exists."
+                    )
+            else:
+                # Create a new user
+                care_user = User(
+                    phone_number=profile_update.phone_number,
+                    email=profile_update.email
                 )
-            
-            # Create a new user
-            care_user = User(phone_number=identity)
-            db.add(care_user)
-            db.commit()
-            db.refresh(care_user)
-            
-            # 2. Look up profile of this care_user
-            care_profile = db.query(Profile).filter(Profile.user_id == care_user.uid).first()
+                db.add(care_user)
+                db.commit()
+                db.refresh(care_user)
+                care_profile = None
+
             if not care_profile:
-                name_parts = care.get("name", "").split(" ", 1)
-                first_name = name_parts[0]
-                last_name = name_parts[1] if len(name_parts) > 1 else ""
-                dob_val = None
-                if care.get("dob"):
-                    try:
-                        dob_val = date.fromisoformat(care["dob"])
-                    except ValueError:
-                        pass
-                
                 care_profile = Profile(
                     user_id=care_user.uid,
-                    first_name=first_name,
-                    last_name=last_name,
-                    gender=care.get("gender"),
-                    date_of_birth=dob_val,
-                    avatar=care.get("avatar"),
-                    phone_number=care.get("phoneNumber") or (identity if "@" not in identity else None),
-                    email=care.get("email") or (identity if "@" in identity else None),
                     created_by=user_uid,
-                    relation=care.get("relation", "other"),
+                    relation=profile_update.relation or "other",
                     is_verified=False
                 )
                 db.add(care_profile)
                 db.commit()
                 db.refresh(care_profile)
             else:
-                # Update care profile details
-                name_parts = care.get("name", "").split(" ", 1)
-                if name_parts:
-                    care_profile.first_name = name_parts[0]
-                    if len(name_parts) > 1:
-                        care_profile.last_name = name_parts[1]
-                if care.get("gender"):
-                    care_profile.gender = care.get("gender")
-                if care.get("dob"):
-                    try:
-                        care_profile.date_of_birth = date.fromisoformat(care["dob"])
-                    except ValueError:
-                        pass
-                if care.get("avatar"):
-                    care_profile.avatar = care.get("avatar")
-                if care.get("email"):
-                    care_profile.email = care.get("email")
-                if care.get("phoneNumber"):
-                    care_profile.phone_number = care.get("phoneNumber")
                 care_profile.created_by = user_uid
-                care_profile.relation = care.get("relation", care_profile.relation or "other")
+                care_profile.relation = profile_update.relation or care_profile.relation or "other"
                 db.add(care_profile)
                 db.commit()
                 db.refresh(care_profile)
@@ -170,12 +137,14 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         db_profile.relation = "self"
         db_profile.created_by = user_uid
 
-    # 1. Update basic profile fields (only if not 'other', since we set care person's details above)
-    if profile_update.profile_target != 'other':
-        basic_fields = ["first_name", "last_name", "email", "phone_number", "date_of_birth", "gender", "avatar"]
-        for key in basic_fields:
-            if key in update_data:
-                setattr(target_profile, key, update_data[key])
+    # 1. Update basic profile fields flatly for target_profile
+    basic_fields = ["first_name", "last_name", "email", "phone_number", "date_of_birth", "gender", "avatar"]
+    for key in basic_fields:
+        if key in update_data:
+            val = update_data[key]
+            if key == "gender" and val is not None:
+                val = val.value if hasattr(val, 'value') else val
+            setattr(target_profile, key, val)
 
     # Helpers to support both nested health_profile and flat properties in the request payload
     def has_health_field(field_name: str) -> bool:
