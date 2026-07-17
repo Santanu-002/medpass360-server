@@ -27,9 +27,12 @@ def get_user_by_phone(db: Session, phone_number: str) -> Optional[User]:
     return db.query(User).filter(User.phone_number == phone_number).first()
 
 
-def create_user(db: Session, phone_number: str) -> User:
-    # Create the user
-    db_user = User(phone_number=phone_number)
+def create_user(db: Session, identity: str) -> User:
+    # Create the user depending on identity format (email or phone)
+    if "@" in identity:
+        db_user = User(email=identity, phone_number=None)
+    else:
+        db_user = User(phone_number=identity, email=None)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -68,10 +71,10 @@ def create_profile(
     return db_profile
 
 
-def get_or_create_user(db: Session, phone_number: str) -> User:
-    db_user = get_user_by_phone(db, phone_number)
+def get_or_create_user(db: Session, identity: str) -> User:
+    db_user = get_user_by_identity(db, identity)
     if not db_user:
-        db_user = create_user(db, phone_number)
+        db_user = create_user(db, identity)
     return db_user
 
 
@@ -366,12 +369,14 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
 
 def get_user_by_identity(db: Session, identity: str) -> Optional[User]:
     """
-    Check if a user exists by a given identity (either primary phone number on User, 
+    Check if a user exists by a given identity (either primary phone number/email on User, 
     or email/secondary phone number on Profile).
     Returns the User model if found, else None.
     """
-    # 1. Check primary phone number in User
-    user = db.query(User).filter(User.phone_number == identity).first()
+    # 1. Check primary phone number or email in User
+    user = db.query(User).filter(
+        (User.phone_number == identity) | (User.email == identity)
+    ).first()
     if user:
         return user
     

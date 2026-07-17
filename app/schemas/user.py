@@ -113,7 +113,8 @@ class ProfileResponse(ProfileBase):
 
 
 class UserBase(CamelModel):
-    phone_number: str = Field(..., max_length=150)
+    phone_number: Optional[str] = Field(None, max_length=150)
+    email: Optional[str] = Field(None, max_length=150)
 
 
 class UserCreate(UserBase):
