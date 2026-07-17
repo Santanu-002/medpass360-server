@@ -137,6 +137,40 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         db_profile.relation = "self"
         db_profile.created_by = user_uid
 
+    # Check unique identity across all other users and profiles in the system
+    email_to_check = profile_update.email
+    phone_to_check = profile_update.phone_number
+
+    if email_to_check:
+        existing_email_user = db.query(User).filter(
+            User.email == email_to_check,
+            User.uid != target_profile.user_id
+        ).first()
+        existing_email_profile = db.query(Profile).filter(
+            Profile.email == email_to_check,
+            Profile.user_id != target_profile.user_id
+        ).first()
+        if existing_email_user or existing_email_profile:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user with this email already exists."
+            )
+
+    if phone_to_check:
+        existing_phone_user = db.query(User).filter(
+            User.phone_number == phone_to_check,
+            User.uid != target_profile.user_id
+        ).first()
+        existing_phone_profile = db.query(Profile).filter(
+            Profile.phone_number == phone_to_check,
+            Profile.user_id != target_profile.user_id
+        ).first()
+        if existing_phone_user or existing_phone_profile:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user with this phone number already exists."
+            )
+
     # 1. Update basic profile fields flatly for target_profile
     basic_fields = ["first_name", "last_name", "email", "phone_number", "date_of_birth", "gender", "avatar"]
     for key in basic_fields:
@@ -328,6 +362,13 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if target_profile.relation == "self":
         parent_user = db.query(User).filter(User.uid == user_uid).first()
         if parent_user:
+            # Sync new values from update request to User table if provided
+            if profile_update.email:
+                parent_user.email = profile_update.email
+            if profile_update.phone_number:
+                parent_user.phone_number = profile_update.phone_number
+                
+            # If not in request but target_profile has it, sync as fallback
             if not target_profile.email and parent_user.email:
                 target_profile.email = parent_user.email
             if not target_profile.phone_number and parent_user.phone_number:
