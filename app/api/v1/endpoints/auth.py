@@ -172,7 +172,7 @@ async def verify_otp(
     await redis.delete(redis_key_otp)
 
     # 1. Fetch or create actual user in the PostgreSQL DB
-    db_user = get_or_create_user(db, phone_number=session_data["phoneNumber"])
+    db_user = get_or_create_user(db, identity=session_data["phoneNumber"])
 
     # 2. Generate auth tokens with real user ID (uid)
     access = create_access_token(subject=db_user.uid)
