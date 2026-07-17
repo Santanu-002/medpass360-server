@@ -3,18 +3,19 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.response import ApiResponse
-from app.schemas.user import UserResponse, ProfileUpdate
+from app.schemas.user import UserResponse, ProfileUpdate, SaveHealthProfileRequest
 from app.crud.user import update_profile
 
 router = APIRouter()
 
 @router.post("/health-profile", response_model=ApiResponse[UserResponse])
 def save_health_profile_post(
-    profile_data: ProfileUpdate,
+    request: SaveHealthProfileRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    target_profile = update_profile(db, user_uid=current_user.uid, profile_update=profile_data)
+    request.profile.profile_target = request.profile_target
+    target_profile = update_profile(db, user_uid=current_user.uid, profile_update=request.profile)
     if not target_profile:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -31,11 +32,12 @@ def save_health_profile_post(
 
 @router.put("/health-profile", response_model=ApiResponse[UserResponse])
 def save_health_profile_put(
-    profile_data: ProfileUpdate,
+    request: SaveHealthProfileRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    target_profile = update_profile(db, user_uid=current_user.uid, profile_update=profile_data)
+    request.profile.profile_target = request.profile_target
+    target_profile = update_profile(db, user_uid=current_user.uid, profile_update=request.profile)
     if not target_profile:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

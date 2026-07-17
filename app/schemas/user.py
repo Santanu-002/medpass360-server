@@ -132,3 +132,8 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+
+class SaveHealthProfileRequest(CamelModel):
+    profile_target: str = Field(..., alias="profileTarget")
+    profile: ProfileUpdate = Field(...)
