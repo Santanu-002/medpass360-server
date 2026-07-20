@@ -29,6 +29,16 @@ def get_user_by_phone(db: Session, phone_number: str) -> Optional[User]:
     return db.query(User).filter(User.phone_number == phone_number).first()
 
 
+def update_user_terms_agreement(db: Session, user_uid: str, is_agreed: bool = True) -> Optional[User]:
+    user = get_user_by_id(db, user_uid)
+    if user:
+        user.is_agreed_to_terms = is_agreed
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+
 def create_user(db: Session, identity: str) -> User:
     # Create the user depending on identity format (email or phone)
     if "@" in identity:

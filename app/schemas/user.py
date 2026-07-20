@@ -124,6 +124,7 @@ class UserResponse(UserBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    is_agreed_to_terms: bool = False
     is_biometric_setup_completed: bool
     profiles: List[ProfileResponse] = []
 
