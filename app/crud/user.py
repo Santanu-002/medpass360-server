@@ -10,7 +10,6 @@ from app.models import (
     Profile,
     Vital,
     EmergencyContact,
-    MedicalOption,  # Keep this in case other functions use it, but add others:
     Allergy,
     MedicalCondition,
     FamilyHistory,
