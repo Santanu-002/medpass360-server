@@ -99,7 +99,9 @@ async def extract_medications(
     # Simulate text extraction processing delay
     await asyncio.sleep(2.0)
     
-    # Mock data output aligned with the required structure
+    image_count = len(request.images)
+    
+    # Mock data output aligned with complete and incomplete extraction cases
     mocked_meds = [
         {
             "title": "Metoprolol succinate",
@@ -109,17 +111,22 @@ async def extract_medications(
             "instructions": "1 tablet every morning",
             "foodRelation": "after_breakfast",
             "frequency": "daily",
-            "tags": ["Prescription"]
+            "tags": ["Prescription"],
+            "isIncomplete": False,
+            "incompleteFields": []
         },
         {
             "title": "Furosemide",
             "slug": "furosemide",
-            "dosage": "40 mg",
+            "dosage": "",  # Incomplete field: dosage was unreadable
             "timings": ["morning"],
             "instructions": "1 tablet every morning",
             "foodRelation": "after_breakfast",
             "frequency": "daily",
-            "tags": ["Prescription"]
+            "tags": ["Prescription"],
+            "isIncomplete": True,
+            "incompleteFields": ["dosage"],
+            "unreadableReason": "Dosage label could not be read clearly from photo"
         },
         {
             "title": "Eliquis (apixaban)",
@@ -129,12 +136,22 @@ async def extract_medications(
             "instructions": "1 tablet, morning & evening",
             "foodRelation": "after_meal",
             "frequency": "daily",
-            "tags": ["CRITICAL"]
+            "tags": ["CRITICAL"],
+            "isIncomplete": False,
+            "incompleteFields": []
         }
     ]
     
+    unreadable_photos = []
+    if image_count >= 3:
+        # If >= 3 images, simulate both cases: incomplete medication + 1 unreadable photo
+        unreadable_photos = [request.images[-1]]
+        
     return ApiResponse(
         success=True,
         message="Medications extracted successfully.",
-        data=mocked_meds
+        data={
+            "medications": mocked_meds,
+            "unreadablePhotos": unreadable_photos
+        }
     )
