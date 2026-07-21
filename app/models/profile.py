@@ -182,7 +182,8 @@ class Profile(Base):
             "timings": m.timings,
             "instructions": m.instructions,
             "foodRelation": m.food_relation,
-            "tags": m.tags
+            "tags": m.tags or [],
+            "isStopped": bool(m.is_stopped) if hasattr(m, "is_stopped") and m.is_stopped is not None else ("STOPPED" in (m.tags or []))
         } for m in self.medications_rel]
 
     @property
@@ -300,6 +301,7 @@ class Medication(Base):
     instructions = Column(String(255), nullable=True)
     food_relation = Column(String(100), nullable=True)
     tags = Column(JSON, nullable=True)
+    is_stopped = Column(Boolean, default=False, nullable=True)
     created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True, index=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

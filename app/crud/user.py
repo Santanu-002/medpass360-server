@@ -440,6 +440,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
         db.query(Medication).filter(Medication.profile_id == target_profile.id).delete()
         meds = get_health_field("current_medications") or []
         for m in meds:
+            tags_list = m.get("tags") or []
+            is_stopped_val = m.get("isStopped", False) or ("STOPPED" in tags_list)
             db.add(Medication(
                 profile_id=target_profile.id,
                 name=m["name"],
@@ -449,7 +451,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                 timings=m.get("timings"),
                 instructions=m.get("instructions"),
                 food_relation=m.get("foodRelation"),
-                tags=m.get("tags"),
+                tags=tags_list,
+                is_stopped=is_stopped_val,
                 created_by=user_uid
             ))
 

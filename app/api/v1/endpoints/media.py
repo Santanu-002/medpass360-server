@@ -102,6 +102,7 @@ MEDICATION_CATALOG = [
         "foodRelation": "after_breakfast",
         "frequency": "daily",
         "tags": ["Prescription"],
+        "isStopped": False,
     },
     {
         "title": "Furosemide",
@@ -112,6 +113,7 @@ MEDICATION_CATALOG = [
         "foodRelation": "after_breakfast",
         "frequency": "daily",
         "tags": ["Prescription"],
+        "isStopped": False,
     },
     {
         "title": "Eliquis (apixaban)",
@@ -122,6 +124,7 @@ MEDICATION_CATALOG = [
         "foodRelation": "after_meal",
         "frequency": "daily",
         "tags": ["CRITICAL"],
+        "isStopped": False,
     },
     {
         "title": "Atorvastatin",
@@ -132,6 +135,7 @@ MEDICATION_CATALOG = [
         "foodRelation": "none",
         "frequency": "daily",
         "tags": ["Statins"],
+        "isStopped": False,
     },
     {
         "title": "Lisinopril",
@@ -142,6 +146,7 @@ MEDICATION_CATALOG = [
         "foodRelation": "on_empty_stomach",
         "frequency": "daily",
         "tags": ["Blood Pressure"],
+        "isStopped": False,
     },
 ]
 
