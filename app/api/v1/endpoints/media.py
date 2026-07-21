@@ -1,6 +1,7 @@
 import os
 import uuid
 import asyncio
+import random
 from typing import List, Optional
 from enum import Enum
 from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException, status
@@ -91,6 +92,59 @@ async def upload_media(
         data={"url": public_url}
     )
 
+MEDICATION_CATALOG = [
+    {
+        "title": "Metoprolol succinate",
+        "slug": "metoprolol-succinate",
+        "dosage": "25 mg",
+        "timings": ["morning"],
+        "instructions": "1 tablet every morning",
+        "foodRelation": "after_breakfast",
+        "frequency": "daily",
+        "tags": ["Prescription"],
+    },
+    {
+        "title": "Furosemide",
+        "slug": "furosemide",
+        "dosage": "40 mg",
+        "timings": ["morning"],
+        "instructions": "1 tablet every morning",
+        "foodRelation": "after_breakfast",
+        "frequency": "daily",
+        "tags": ["Prescription"],
+    },
+    {
+        "title": "Eliquis (apixaban)",
+        "slug": "eliquis-apixaban",
+        "dosage": "5 mg",
+        "timings": ["morning", "evening"],
+        "instructions": "1 tablet, morning & evening",
+        "foodRelation": "after_meal",
+        "frequency": "daily",
+        "tags": ["CRITICAL"],
+    },
+    {
+        "title": "Atorvastatin",
+        "slug": "atorvastatin",
+        "dosage": "20 mg",
+        "timings": ["night"],
+        "instructions": "1 tablet before sleep",
+        "foodRelation": "none",
+        "frequency": "daily",
+        "tags": ["Statins"],
+    },
+    {
+        "title": "Lisinopril",
+        "slug": "lisinopril",
+        "dosage": "10 mg",
+        "timings": ["morning"],
+        "instructions": "1 tablet daily",
+        "foodRelation": "on_empty_stomach",
+        "frequency": "daily",
+        "tags": ["Blood Pressure"],
+    },
+]
+
 @router.post("/medications/extract", response_model=ApiResponse)
 async def extract_medications(
     request: MedicationExtractRequest,
@@ -99,59 +153,42 @@ async def extract_medications(
     # Simulate text extraction processing delay
     await asyncio.sleep(2.0)
     
-    image_count = len(request.images)
-    
-    # Mock data output aligned with complete and incomplete extraction cases
-    mocked_meds = [
-        {
-            "title": "Metoprolol succinate",
-            "slug": "metoprolol-succinate",
-            "dosage": "25 mg",
-            "timings": ["morning"],
-            "instructions": "1 tablet every morning",
-            "foodRelation": "after_breakfast",
-            "frequency": "daily",
-            "tags": ["Prescription"],
-            "isIncomplete": False,
-            "incompleteFields": []
-        },
-        {
-            "title": "Furosemide",
-            "slug": "furosemide",
-            "dosage": "",  # Incomplete field: dosage was unreadable
-            "timings": ["morning"],
-            "instructions": "1 tablet every morning",
-            "foodRelation": "after_breakfast",
-            "frequency": "daily",
-            "tags": ["Prescription"],
-            "isIncomplete": True,
-            "incompleteFields": ["dosage"],
-            "unreadableReason": "Dosage label could not be read clearly from photo"
-        },
-        {
-            "title": "Eliquis (apixaban)",
-            "slug": "eliquis-apixaban",
-            "dosage": "5 mg",
-            "timings": ["morning", "evening"],
-            "instructions": "1 tablet, morning & evening",
-            "foodRelation": "after_meal",
-            "frequency": "daily",
-            "tags": ["CRITICAL"],
-            "isIncomplete": False,
-            "incompleteFields": []
-        }
-    ]
-    
     unreadable_photos = []
-    if image_count >= 3:
-        # If >= 3 images, simulate both cases: incomplete medication + 1 unreadable photo
-        unreadable_photos = [request.images[-1]]
+    medications = []
+    
+    # Process each uploaded image probabilistically
+    for idx, img_path in enumerate(request.images):
+        # Roll probabilities for this photo
+        # ~30% chance for photo to be blurry / unreadable
+        is_blurry = random.random() < 0.30
         
+        # ~35% chance for extracted medication to be incomplete (missing dosage)
+        is_incomplete = random.random() < 0.35
+        
+        if is_blurry:
+            unreadable_photos.append(img_path)
+            
+        # If photo is not blurry OR with a small probability (15%) even if blurry it extracted a partial med
+        if not is_blurry or (is_blurry and random.random() < 0.15):
+            # Select a medication from catalog
+            base_med = dict(MEDICATION_CATALOG[idx % len(MEDICATION_CATALOG)])
+            
+            if is_incomplete:
+                base_med["dosage"] = ""
+                base_med["isIncomplete"] = True
+                base_med["incompleteFields"] = ["dosage"]
+                base_med["unreadableReason"] = "Dosage label could not be read clearly from photo"
+            else:
+                base_med["isIncomplete"] = False
+                base_med["incompleteFields"] = []
+                
+            medications.append(base_med)
+            
     return ApiResponse(
         success=True,
         message="Medications extracted successfully.",
         data={
-            "medications": mocked_meds,
+            "medications": medications,
             "unreadablePhotos": unreadable_photos
         }
     )
