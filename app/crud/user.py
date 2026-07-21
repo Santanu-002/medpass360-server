@@ -155,11 +155,12 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if email_to_check:
         existing_email_user = db.query(User).filter(
             User.email == email_to_check,
+            User.uid != user_uid,
             User.uid != target_profile.user_id
         ).first()
         existing_email_profile = db.query(Profile).filter(
             Profile.email == email_to_check,
-            Profile.user_id != target_profile.user_id
+            Profile.id != target_profile.id
         ).first()
         if existing_email_user or existing_email_profile:
             raise HTTPException(
@@ -170,11 +171,12 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
     if phone_to_check:
         existing_phone_user = db.query(User).filter(
             User.phone_number == phone_to_check,
+            User.uid != user_uid,
             User.uid != target_profile.user_id
         ).first()
         existing_phone_profile = db.query(Profile).filter(
             Profile.phone_number == phone_to_check,
-            Profile.user_id != target_profile.user_id
+            Profile.id != target_profile.id
         ).first()
         if existing_phone_user or existing_phone_profile:
             raise HTTPException(
