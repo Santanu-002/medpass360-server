@@ -174,10 +174,18 @@ async def extract_medications(
             base_med = dict(MEDICATION_CATALOG[idx % len(MEDICATION_CATALOG)])
             
             if is_incomplete:
-                base_med["dosage"] = ""
                 base_med["isIncomplete"] = True
-                base_med["incompleteFields"] = ["dosage"]
-                base_med["unreadableReason"] = "Dosage label could not be read clearly from photo"
+                # Roll whether missing field is 'title' (name) OR 'dosage' (dose) - mutually exclusive
+                missing_field = random.choice(["title", "dosage"])
+                if missing_field == "title":
+                    base_med["title"] = ""
+                    base_med["slug"] = ""
+                    base_med["incompleteFields"] = ["title"]
+                    base_med["unreadableReason"] = "Medication name label could not be read clearly from photo"
+                else:
+                    base_med["dosage"] = ""
+                    base_med["incompleteFields"] = ["dosage"]
+                    base_med["unreadableReason"] = "Dosage label could not be read clearly from photo"
             else:
                 base_med["isIncomplete"] = False
                 base_med["incompleteFields"] = []
