@@ -18,8 +18,6 @@ from app.core.jwt_service import create_access_token, create_refresh_token, deco
 from app.api.deps import get_db, get_current_user
 from app.crud.user import (
     get_or_create_user,
-    update_profile,
-    create_profile,
     get_user_by_identity,
     enable_user_biometrics,
     create_or_update_user_session,
