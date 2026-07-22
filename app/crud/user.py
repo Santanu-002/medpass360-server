@@ -51,6 +51,41 @@ def create_user(db: Session, identity: str) -> User:
     return db_user
 
 
+def ensure_profile_access(
+    db: Session,
+    profile_id: int,
+    user_id: str,
+    access_level: str,
+    relation: str,
+    granted_by: Optional[str] = None
+):
+    from app.models.profile_access import ProfileAccess
+    access = db.query(ProfileAccess).filter(
+        ProfileAccess.profile_id == profile_id,
+        ProfileAccess.user_id == user_id,
+        ProfileAccess.revoked_at.is_(None)
+    ).first()
+    
+    if access:
+        access.access_level = access_level
+        access.relation = relation
+        if granted_by:
+            access.granted_by = granted_by
+    else:
+        access = ProfileAccess(
+            profile_id=profile_id,
+            user_id=user_id,
+            access_level=access_level,
+            relation=relation,
+            granted_by=granted_by
+        )
+        db.add(access)
+    
+    db.commit()
+    db.refresh(access)
+    return access
+
+
 def create_profile(
     db: Session,
     user_uid: str,
@@ -59,8 +94,6 @@ def create_profile(
     gender: str,
     date_of_birth: date,
     avatar: Optional[str] = None,
-    phone_number: Optional[str] = None,
-    email: Optional[str] = None,
     created_by: Optional[str] = None,
     relation: str = "self"
 ) -> Profile:
@@ -71,8 +104,6 @@ def create_profile(
         gender=gender,
         date_of_birth=date_of_birth,
         avatar=avatar,
-        phone_number=phone_number,
-        email=email,
         created_by=created_by or user_uid,
         relation=relation,
         is_verified=True if relation == "self" else False
@@ -80,6 +111,17 @@ def create_profile(
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
+    
+    # Auto-grant owner access to self
+    ensure_profile_access(
+        db=db,
+        profile_id=db_profile.id,
+        user_id=user_uid,
+        access_level="owner",
+        relation="self",
+        granted_by=user_uid
+    )
+    
     return db_profile
 
 
@@ -144,11 +186,37 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                 db.refresh(care_profile)
             
             target_profile = care_profile
+
+        # Ensure permissions mapping is set up
+        ensure_profile_access(
+            db=db,
+            profile_id=target_profile.id,
+            user_id=target_profile.user_id,
+            access_level="owner",
+            relation="self",
+            granted_by=user_uid
+        )
+        ensure_profile_access(
+            db=db,
+            profile_id=target_profile.id,
+            user_id=user_uid,
+            access_level="full_access",
+            relation=profile_update.relation or "other",
+            granted_by=user_uid
+        )
     else:
         db_profile.relation = "self"
         db_profile.created_by = user_uid
+        ensure_profile_access(
+            db=db,
+            profile_id=target_profile.id,
+            user_id=user_uid,
+            access_level="owner",
+            relation="self",
+            granted_by=user_uid
+        )
 
-    # Check unique identity across all other users and profiles in the system
+    # Check unique identity across all other users in the system
     email_to_check = profile_update.email
     phone_to_check = profile_update.phone_number
 
@@ -158,11 +226,7 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             User.uid != user_uid,
             User.uid != target_profile.user_id
         ).first()
-        existing_email_profile = db.query(Profile).filter(
-            Profile.email == email_to_check,
-            Profile.id != target_profile.id
-        ).first()
-        if existing_email_user or existing_email_profile:
+        if existing_email_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="A user with this email already exists."
@@ -174,24 +238,29 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
             User.uid != user_uid,
             User.uid != target_profile.user_id
         ).first()
-        existing_phone_profile = db.query(Profile).filter(
-            Profile.phone_number == phone_to_check,
-            Profile.id != target_profile.id
-        ).first()
-        if existing_phone_user or existing_phone_profile:
+        if existing_phone_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="A user with this phone number already exists."
             )
 
-    # 1. Update basic profile fields flatly for target_profile
-    basic_fields = ["first_name", "last_name", "email", "phone_number", "date_of_birth", "gender", "avatar"]
+    # 1. Update basic profile fields flatly for target_profile (except email and phone which go to the User table)
+    basic_fields = ["first_name", "last_name", "date_of_birth", "gender", "avatar"]
     for key in basic_fields:
         if key in update_data:
             val = update_data[key]
             if key == "gender" and val is not None:
                 val = val.value if hasattr(val, 'value') else val
             setattr(target_profile, key, val)
+
+    # Centralized identity update directly on the associated User model
+    target_user = target_profile.user
+    if target_user:
+        if "email" in update_data:
+            target_user.email = update_data["email"]
+        if "phone_number" in update_data:
+            target_user.phone_number = update_data["phone_number"]
+        db.add(target_user)
 
     # Helpers to support both nested health_profile and flat properties in the request payload
     def has_health_field(field_name: str) -> bool:
@@ -458,22 +527,8 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
                 created_by=user_uid
             ))
 
-    if target_profile.relation == "self":
-        parent_user = db.query(User).filter(User.uid == user_uid).first()
-        if parent_user:
-            # Sync new values from update request to User table if provided
-            if profile_update.email:
-                parent_user.email = profile_update.email
-            if profile_update.phone_number:
-                parent_user.phone_number = profile_update.phone_number
-                
-            # If not in request but target_profile has it, sync as fallback
-            if not target_profile.email and parent_user.email:
-                target_profile.email = parent_user.email
-            if not target_profile.phone_number and parent_user.phone_number:
-                target_profile.phone_number = parent_user.phone_number
-
-    if not target_profile.email and not target_profile.phone_number:
+    # Verify that the target user has at least one login credential
+    if not target_profile.user or (not target_profile.user.email and not target_profile.user.phone_number):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one identity (email or phone number) must be present."
@@ -487,25 +542,12 @@ def update_profile(db: Session, user_uid: str, profile_update: ProfileUpdate) ->
 
 def get_user_by_identity(db: Session, identity: str) -> Optional[User]:
     """
-    Check if a user exists by a given identity (either primary phone number/email on User, 
-    or email/secondary phone number on Profile).
+    Check if a user exists by a given identity (either primary phone number or email on User).
     Returns the User model if found, else None.
     """
-    # 1. Check primary phone number or email in User
-    user = db.query(User).filter(
+    return db.query(User).filter(
         (User.phone_number == identity) | (User.email == identity)
     ).first()
-    if user:
-        return user
-    
-    # 2. Check email or phone number in Profile
-    db_profile = db.query(Profile).filter(
-        (Profile.email == identity) | (Profile.phone_number == identity)
-    ).first()
-    if db_profile:
-        return db.query(User).filter(User.uid == db_profile.user_id).first()
-        
-    return None
 
 
 def enable_user_biometrics(db: Session, user: User, device_id: str) -> UserDeviceBiometric:
@@ -614,5 +656,10 @@ def invalidate_user_session(
         db.commit()
         db.refresh(session)
     return session
+
+
+def get_profile_by_uid(db: Session, profile_uid: str) -> Optional[Profile]:
+    return db.query(Profile).filter(Profile.uid == profile_uid).first()
+
 
 

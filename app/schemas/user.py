@@ -104,6 +104,7 @@ class ProfileResponse(ProfileBase):
     created_at: datetime
     updated_at: datetime
     health_profile: Optional[HealthProfileResponse] = None
+    access_level: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -130,5 +131,15 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+
+class HealthProfileCardResponse(CamelModel):
+    first_name: str
+    last_name: str
+    active_medication_count: int
+
+    class Config:
+        from_attributes = True
+
 
 

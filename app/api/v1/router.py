@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, registration, medical_option, media, health_profile
+from app.api.v1.endpoints import health, auth, registration, medical_option, media, health_profile, profile_access
 
 api_router = APIRouter()
 
@@ -10,4 +10,5 @@ api_router.include_router(registration.router, prefix="/auth", tags=["registrati
 api_router.include_router(medical_option.router, tags=["medical-options"])
 api_router.include_router(media.router, prefix="/media", tags=["media"])
 api_router.include_router(health_profile.router, tags=["health-profile"])
+api_router.include_router(profile_access.router, tags=["profile-access"])
 

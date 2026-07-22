@@ -14,6 +14,7 @@ from app.models.profile import (
     AdditionalDetail,
     ProfileMedicalSelection,
 )
+from app.models.profile_access import ProfileAccess
 
 __all__ = [
     "Base",
@@ -30,4 +31,5 @@ __all__ = [
     "Lifestyle",
     "AdditionalDetail",
     "ProfileMedicalSelection",
+    "ProfileAccess",
 ]

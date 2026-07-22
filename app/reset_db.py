@@ -44,9 +44,9 @@ def reset_database():
     with engine.connect() as conn:
         conn.execute(text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY);'))
         conn.execute(text('DELETE FROM alembic_version;'))
-        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('bd1e62c8968b');"))
+        conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('e3b33531c579');"))
         conn.commit()
-    print("Alembic version set to head ('bd1e62c8968b') successfully!")
+    print("Alembic version set to head ('e3b33531c579') successfully!")
 
     print("Seeding default medical options...")
     from app.core.seeding import seed_default_medical_options

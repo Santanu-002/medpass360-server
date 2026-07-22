@@ -24,15 +24,33 @@ class User(Base):
 
     @property
     def profiles(self):
+        from sqlalchemy.orm import object_session
+        db = object_session(self)
+        if not db:
+            return []
+        
+        from app.models.profile_access import ProfileAccess
+        access_records = db.query(ProfileAccess).filter(
+            ProfileAccess.user_id == self.uid,
+            ProfileAccess.revoked_at.is_(None)
+        ).all()
+        
+        # Sort access records so the user's own profile (relation == "self" or access_level == "owner") is first,
+        # followed by other records sorted by created_at.
+        def sort_key(rec):
+            if rec.relation == "self" or rec.access_level == "owner":
+                return (0, rec.created_at or 0)
+            return (1, rec.created_at or 0)
+            
+        access_records_sorted = sorted(access_records, key=sort_key)
+        
         res = []
         seen_uids = set()
-        # Own profile first (relation=self)
-        if self.profile:
-            res.append(self.profile)
-            seen_uids.add(self.profile.uid)
-        # Then care profiles ordered by created_at ascending
-        for p in sorted(self.created_profiles, key=lambda x: x.created_at or 0):
-            if p.uid not in seen_uids:
+        for record in access_records_sorted:
+            p = record.profile
+            if p and p.uid not in seen_uids:
+                p.temp_relation = record.relation
+                p.temp_access_level = record.access_level
                 res.append(p)
                 seen_uids.add(p.uid)
         return res

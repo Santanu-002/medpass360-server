@@ -88,26 +88,22 @@ async def register_user_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Phone number is already in use by another account."
             )
-        profile_by_phone = db.query(Profile).filter(Profile.phone_number == final_phone).first()
-        if profile_by_phone and profile_by_phone.user_id != current_user.uid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Phone number is already in use by another account."
-            )
 
     if final_email:
-        user_by_email = db.query(User).filter(User.phone_number == final_email).first()
+        user_by_email = db.query(User).filter(User.email == final_email).first()
         if user_by_email and user_by_email.uid != current_user.uid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email address is already in use by another account."
             )
-        profile_by_email = db.query(Profile).filter(Profile.email == final_email).first()
-        if profile_by_email and profile_by_email.user_id != current_user.uid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email address is already in use by another account."
-            )
+
+    # Sync resolved identities back to the User model
+    if final_phone:
+        current_user.phone_number = final_phone
+    if final_email:
+        current_user.email = final_email
+    db.add(current_user)
+    db.flush()
 
     # 3. Create profile (avatar_url is already a URL string from /media/upload)
     crud_user.create_profile(
@@ -117,9 +113,7 @@ async def register_user_profile(
         last_name=last_name.strip(),
         gender=gender.value,
         date_of_birth=dob,
-        avatar=avatar_url,
-        phone_number=final_phone,
-        email=final_email
+        avatar=avatar_url
     )
     
     # Refresh user to load profile relationship

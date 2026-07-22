@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.response import ApiResponse
-from app.schemas.user import UserResponse, ProfileUpdate
-from app.crud.user import update_profile
+from app.schemas.user import UserResponse, ProfileUpdate, HealthProfileCardResponse
+from app.crud.user import update_profile, get_profile_by_uid
 
 router = APIRouter()
 
@@ -48,3 +48,31 @@ def save_health_profile_put(
         message="Health profile saved successfully.",
         data=user_resp
     )
+
+
+@router.get("/health-profile-card/{profile_uid}", response_model=ApiResponse[HealthProfileCardResponse])
+def get_health_profile_card(
+    profile_uid: str,
+    db: Session = Depends(get_db)
+):
+    profile = get_profile_by_uid(db, profile_uid=profile_uid)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found."
+        )
+    
+    active_count = sum(1 for m in profile.medications_rel if not m.is_stopped)
+    
+    card_data = HealthProfileCardResponse(
+        first_name=profile.first_name or "",
+        last_name=profile.last_name or "",
+        active_medication_count=active_count
+    )
+    
+    return ApiResponse(
+        success=True,
+        message="Health profile card retrieved successfully.",
+        data=card_data
+    )
+

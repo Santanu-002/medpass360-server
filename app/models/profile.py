@@ -13,14 +13,12 @@ class Profile(Base):
     user_id = Column(String(36), ForeignKey("users.uid", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
-    email = Column(String(255), unique=True, nullable=True, index=True)
-    phone_number = Column(String(50), unique=True, nullable=True, index=True)
     date_of_birth = Column(Date, nullable=True)
     gender = Column(String(50), nullable=True)
     avatar = Column(String(500), nullable=True)
     
     created_by = Column(String(36), ForeignKey("users.uid", ondelete="SET NULL"), nullable=True)
-    relation = Column(String(50), nullable=False, default="self")
+    _relation = Column("relation", String(50), nullable=False, default="self")
     is_verified = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -30,6 +28,9 @@ class Profile(Base):
     user = relationship("User", back_populates="profile", foreign_keys=[user_id])
     creator = relationship("User", back_populates="created_profiles", foreign_keys=[created_by])
 
+    # Access control permissions list
+    access_list = relationship("ProfileAccess", back_populates="profile", cascade="all, delete-orphan")
+
     # 1-to-1 and 1-to-many child relationships
     vitals_rel = relationship("Vital", back_populates="profile", uselist=False, cascade="all, delete-orphan")
     emergency_contact_rel = relationship("EmergencyContact", back_populates="profile", uselist=False, cascade="all, delete-orphan")
@@ -37,6 +38,28 @@ class Profile(Base):
     medications_rel = relationship("Medication", back_populates="profile", cascade="all, delete-orphan")
     lifestyle_rel = relationship("Lifestyle", back_populates="profile", uselist=False, cascade="all, delete-orphan")
     additional_detail_rel = relationship("AdditionalDetail", back_populates="profile", uselist=False, cascade="all, delete-orphan")
+
+    @property
+    def email(self) -> Optional[str]:
+        return self.user.email if self.user else None
+
+    @property
+    def phone_number(self) -> Optional[str]:
+        return self.user.phone_number if self.user else None
+
+    @property
+    def relation(self) -> str:
+        if hasattr(self, "temp_relation") and self.temp_relation is not None:
+            return self.temp_relation
+        return self._relation
+
+    @relation.setter
+    def relation(self, value: str):
+        self._relation = value
+
+    @property
+    def access_level(self) -> Optional[str]:
+        return getattr(self, "temp_access_level", None)
 
     @property
     def vitals(self) -> Optional[dict]:
