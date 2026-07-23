@@ -63,6 +63,7 @@ class HealthProfileResponse(CamelModel):
     family_history: Optional[List[Dict[str, Any]]] = None
     additional_notes: Optional[str] = None
     current_medications: Optional[List[Dict[str, Any]]] = None
+    image_code_url: str = ""
 
 
 class ProfileBase(CamelModel):
@@ -137,6 +138,7 @@ class HealthProfileCardResponse(CamelModel):
     first_name: str
     last_name: str
     active_medication_count: int
+    qr_code_url: str
 
     class Config:
         from_attributes = True
