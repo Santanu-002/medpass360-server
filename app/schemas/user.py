@@ -138,7 +138,7 @@ class HealthProfileCardResponse(CamelModel):
     first_name: str
     last_name: str
     active_medication_count: int
-    qr_code_url: str
+    qr_code_value: str
 
     class Config:
         from_attributes = True

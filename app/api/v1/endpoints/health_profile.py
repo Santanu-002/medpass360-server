@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.response import ApiResponse
@@ -54,7 +53,6 @@ def save_health_profile_put(
 @router.get("/health-profile-card/{profile_uid}", response_model=ApiResponse[HealthProfileCardResponse])
 def get_health_profile_card(
     profile_uid: str,
-    request: Request,
     db: Session = Depends(get_db)
 ):
     profile = get_profile_by_uid(db, profile_uid=profile_uid)
@@ -66,13 +64,13 @@ def get_health_profile_card(
     
     active_count = sum(1 for m in profile.medications_rel if not m.is_stopped)
     
-    qr_code_url = f"{str(request.base_url).rstrip('/')}{settings.API_V1_STR}/health-profile/qr/{profile_uid}"
+    qr_code_value = "https://google.com"
     
     card_data = HealthProfileCardResponse(
         first_name=profile.first_name or "",
         last_name=profile.last_name or "",
         active_medication_count=active_count,
-        qr_code_url=qr_code_url
+        qr_code_value=qr_code_value
     )
     
     return ApiResponse(
