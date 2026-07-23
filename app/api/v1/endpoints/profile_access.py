@@ -1,6 +1,4 @@
-import io
-import qrcode
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
@@ -196,7 +194,7 @@ def revoke_profile_access(
     )
 
 
-@router.get("/health-profile/qr/{profile_uid}")
+@router.get("/health-profile/qr/{profile_uid}", response_model=ApiResponse)
 def get_profile_qr(
     profile_uid: str,
     db: Session = Depends(get_db)
@@ -208,22 +206,9 @@ def get_profile_qr(
             detail="Profile not found."
         )
 
-    # QR URL pointing to the future website view card (currently mock-pointed to google)
-    qr_data = f"https://google.com/health-profile-card/{profile_uid}"
-
-    # Generate QR Code image using Python library
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Write to memory stream and respond as PNG
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-
-    return Response(
-        content=buf.getvalue(),
-        media_type="image/png"
+    # Return the QR value directly as a mock URL
+    return ApiResponse(
+        success=True,
+        message="QR value retrieved successfully.",
+        data={"qr_value": "https://google.com"}
     )

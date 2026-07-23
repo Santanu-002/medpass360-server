@@ -62,10 +62,6 @@ class Profile(Base):
         return getattr(self, "temp_access_level", None)
 
     @property
-    def qr_code_url(self) -> str:
-        return f"/api/v1/health-profile/qr/{self.uid}"
-
-    @property
     def vitals(self) -> Optional[dict]:
         if not self.vitals_rel:
             return None
@@ -227,7 +223,7 @@ class Profile(Base):
             "family_history": self.family_history,
             "additional_notes": self.additional_notes,
             "current_medications": self.current_medications,
-            "image_code_url": self.qr_code_url,
+            "image_code_url": "https://google.com",
         }
 
 
