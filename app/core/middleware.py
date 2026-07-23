@@ -13,6 +13,11 @@ class DeviceHeaderMiddleware(BaseHTTPMiddleware):
         if request.url.path in exempt_paths:
             return await call_next(request)
 
+        # Exempt public endpoints like QR codes and health cards
+        exempt_prefixes = ("/api/v1/health-profile/qr/", "/api/v1/health-profile-card/")
+        if request.url.path.startswith(exempt_prefixes):
+            return await call_next(request)
+
         required_headers = [
             "x-device-id",
             "x-device-model",
