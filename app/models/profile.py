@@ -30,6 +30,7 @@ class Profile(Base):
 
     # Access control permissions list
     access_list = relationship("ProfileAccess", back_populates="profile", cascade="all, delete-orphan")
+    shares = relationship("ProfileShare", back_populates="profile", cascade="all, delete-orphan")
 
     # 1-to-1 and 1-to-many child relationships
     vitals_rel = relationship("Vital", back_populates="profile", uselist=False, cascade="all, delete-orphan")
